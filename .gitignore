@@ -1,0 +1,12 @@
+# exclude everything except .py and .ipynb
+
+# Ignore everything
+*
+
+# But not these files
+!/.gitignore
+!*.py
+!*.ipynb
+
+# even if they are in subdirectoreis
+!*/
