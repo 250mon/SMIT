@@ -1,4 +1,5 @@
 import tensorflow.compat.v1 as tf
+import numpy as np
 import network_branches as nbr
 import util_datasets
 import pdb
@@ -15,10 +16,9 @@ class NetModel():
         self.t_batch_img = tf.placeholder(dtype=tf.uint16, name='input_images')
         self.t_batch_lab = tf.placeholder(dtype=tf.uint8, name='image_labels')
         # placeholders of net_params
-        self.net_params.ph_learning_rate = tf.placeholder(dtype=tf.float32,
-                                                          name='learning_rate')
+        self.net_params.learning_rate_ph = tf.placeholder(dtype=tf.float32, name='learning_rate')
         # for tensorboard summary creation of loss and accuracy
-        self.sum_losses = tf.placeholder(dtype=tf.float32, name='sum_losses')
+        self.summary_ph = tf.placeholder(dtype=tf.float32, name='sum_losses')
 
         # for debugging
         self.t_probes = None
@@ -28,15 +28,14 @@ class NetModel():
         # make inputs as float32 and in the range (0, 1)
         # N x H x W x C
         self.t_inputs = tf.cast(self.t_batch_img, tf.float32) / 255.0
-        # 5 x N x H x W x C
+        # 4 x N x H x W x C
         self.t_level_labs = self._create_branch_labels()
-        # infer the outputs of the levels
-        # 5 x N x H x W x C
-        self.t_outputs = self._inference()
-        # a tensor of loss functions of each level
-        self.t_loss_ops = self._create_losses()
+        # infer the outputs and losses of the levels
+        self.loss, self.t_outputs = self._inference()
+        # apply weight decay
+        self.loss_wd = self._apply_weight_decay(self.loss)
         # build optimizer; target op is loss_wd
-        self.train_ops = self._create_optimizers()
+        self.train_ops = self._create_optimizer(self.loss_wd)
 
         # build session
         self.session = self._create_session()
@@ -55,25 +54,41 @@ class NetModel():
         # self.accuracy = tf.reduce_mean(tf.cast(self.t_correct_prediction, tf.float32))
 
     def _inference(self):
-        lvl_mgr = nlv.LevelManager(self.ic_net)
-        lvl_mgr.build(self.t_inputs)
+        lowbr = nbr.LowBranch(self.ic_net)
+        midbr = nbr.MidBranch(self.ic_net)
+        highbr = nbr.MidBranch(self.ic_net)
+        cff1 = nbr.CFFModule(self.ic_net, term_name='cff1')
+        cff2 = nbr.CFFModule(self.ic_net, term_name='cff2')
 
-        t_outputs = {
-            'lv0': lvl_mgr.level0.retrieve_from_terminal(),
-            'lv1': lvl_mgr.level1.retrieve_from_terminal(),
-            'lv2': lvl_mgr.level2.retrieve_from_terminal(),
-            'lv3': lvl_mgr.level3.retrieve_from_terminal(),
-            'lv4': lvl_mgr.level4.retrieve_from_terminal(),
-            'lv5': lvl_mgr.level5.retrieve_from_terminal(),
-        }
+        t_midbr_conv_out = midbr.build(inputi 1/4)
+        t_lowbr_out = lowbr.build(t_midbr_conv_out)
+        # t_lowbr_pred 1/16
+        t_lowbr_pred, t_midbr_out = cff1.build(t_lowbr_out, t_midbr_conv_out)
+        lowbr_loss = self._loss(t_lowbr_pred, self.t_level_labs['lowbr'])
 
-        # for debugging
-        # self.t_probes = lvl_mgr.tensor_probes
-        return t_outputs
+        t_highbr_conv_out = highbr.build(input 1/2)
+        # t_midbr_pred 1/8
+        t_midbr_pred, t_highbr_out = cff2.build(t_midbr_out, t_highbr_conv_out)
+        midbr_loss = self._loss(t_midbr_pred, self.t_level_labs['midbr'])
+
+        # t_highbr_pred 1/4
+        t_highbr_pred = self._resize_images(t_highbr_out, np.array(t_highbr_out.shape[1:3])*2)
+        highbr_loss = self._loss(t_highbr_pred, self.t_level_labs['highbr'])
+
+        # t_main_out 1
+        t_main_out = self._resize_images(t_highbr_pred, np.array(t_highbr_out.shape[1:3])*4)
+
+        loss = 0.4 * lowbr_loss + 0.4 * midbr_loss + highbr_loss
+        t_outputs = {'highbr': t_highbr_pred, 'main': t_main_out}
+        return loss, t_outputs
 
     # input size: (h, w)
-    def _resize_image(t_images, size):
-        return tf.image.resize_nearest_neighbor(t_images, size, align_corners=True)
+    def _resize_images(t_images, size):
+        return tf.image.resize_bilinear(t_images, size, align_corners=True)
+
+    # input size: (h, w)
+    def _resize_labels(t_labels, size):
+        return tf.image.resize_nearest_neighbor(t_labels, size, align_corners=True)
 
     def _create_branch_labels(self):
         # original label: 720 x 720
@@ -90,58 +105,29 @@ class NetModel():
             'main': self.t_batch_lab,
         }
         for br, size in zip(factors.keys(), sizes):
-            t_br_labels[br] = self._resize_image(self.t_batch_lab, size)
+            t_br_labels[br] = self._resize_labels(self.t_batch_lab, size)
         return t_br_labels
 
-    def _mse_loss(self, level):
-        return tf.reduce_mean(tf.square(self.t_outputs[level] -
-                                        self.t_level_labs[level]),
-                              name=level + '_loss')
+    # t_gt: ground truth, t_pred: prediction
+    def _loss(self, t_pred, t_gt):
+        t_gt_serial = tf.reshape(t_gt, (-1,)) # serialize
+        mask = tf.less_equal(t_gt_serial, self.net_params.class_num - 1)
+        indices = tf.squeeze(tf.where(mask), 1)
 
-    def _neural_loss(self, level):
-        return self.vgg19.get_layer_loss(self.t_outputs[level],
-                                         self.t_level_labs[level])
+        t_gt_gathered = tf.cast(tf.gather(t_gt_serial, indices), tf.int32)
+        t_pred_gathered = tf.gather(tf.reshape(t_pred, (-1, self.net_params.class_num)), indices)
 
-    def _ssim(self, level):
-        # shape: broadcast(N, N) => (N,)
-        t_ssim = tf.image.ssim(self.t_outputs[level] + 1,
-                               self.t_level_labs[level] + 1,
-                               max_val=2.0)
-        # returns mean of traced values
-        return tf.reduce_mean(t_ssim)
+        return tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=t_pred_gathered, labels=t_gt_gathered))
 
-    def _ssim_loss(self, level):
-        return 1.0 - self._ssim(level)
-
-    def _psnr(self, level):
-        # N x 1 tensor
-        t_psnr = tf.image.psnr(self.t_outputs[level] + 1,
-                               self.t_level_labs[level] + 1,
-                               max_val=2.0)
-        # returns a mean
-        return tf.reduce_mean(t_psnr)
-
-    def _create_losses(self):
-        losses = {
-            'lv5':
-            self._mse_loss('lv5') * 100,
-            'lv4':
-            self._mse_loss('lv4') * 100,
-            'lv3':
-            self._mse_loss('lv3') * 100 + self._neural_loss('lv3'),
-            'lv2':
-            self._mse_loss('lv2') * 100 + self._neural_loss('lv2'),
-            'lv1':
-            self._mse_loss('lv1') * 50 + self._neural_loss('lv1'),
-            'lv0':
-            self._mse_loss('lv0') * 20 + self._neural_loss('lv0') +
-            self._ssim_loss('lv0') * 20,
-            'eval_ssim':
-            self._ssim('lv0'),
-            'eval_psnr':
-            self._psnr('lv0'),
-        }
-        return losses
+    # weight decay applied to Batch Norm Params and 1x1 conv Params
+    def _apply_weight_decay(self, loss):
+        if self.net_params.use_weight_decay == False:
+            return self.loss
+        t_var = tf.trainable_variables()
+        w_var = [var for var in t_var if not('_bn' in var.name) and not('11_' in var.name)]
+        w_l2 = tf.add_n([tf.nn.l2_loss(var) for var in w_var])
+        loss_wd = self.loss + self.net_params.weight_decay * w_l2
+        return loss_wd
 
     def _create_session(self):
         # when multiple GPUs - gpu_options =
@@ -154,15 +140,9 @@ class NetModel():
         sess.run(tf.global_variables_initializer())
         return sess
 
-    def _create_optimizers(self):
-        train_ops = {}
-        for lv_name, loss_op in self.t_loss_ops.items():
-            train_ops[lv_name] = self._create_optimizer( loss_op, lv_name + '_Adam')
-        return train_ops
-
     def _create_optimizer(self, op_to_minimize, name='Adam'):
         opt = tf.train.AdamOptimizer(
-            learning_rate=self.net_params.ph_learning_rate,
+            learning_rate=self.net_params.learning_rate_ph,
             beta1=self.net_params.adam_beta1,
             beta2=self.net_params.adam_beta2,
             name=name,
@@ -171,11 +151,6 @@ class NetModel():
         return train_op
 
     def _create_summary(self):
-        lvl1_loss = tf.summary.scalar("Lv1_Loss", self.sum_losses[0])
-        lvl2_loss = tf.summary.scalar("Lv2_Loss", self.sum_losses[1])
-        lvl3_loss = tf.summary.scalar("Lv3_Loss", self.sum_losses[2])
-        lvl4_loss = tf.summary.scalar("Lv4_Loss", self.sum_losses[3])
-        lvl5_loss = tf.summary.scalar("Lv5_Loss", self.sum_losses[4])
-        accuracy = tf.summary.scalar("Accuracy", self.sum_losses[5])
-
-        return tf.summary.merge((lvl1_loss, lvl2_loss, lvl3_loss, lvl4_loss, lvl5_loss, accuracy))
+        loss = tf.summary.scalar("Loss", self.summary_ph[0])
+        accuracy = tf.summary.scalar("Accuracy", self.summary_ph[1])
+        return tf.summary.merge((loss, accuracy))

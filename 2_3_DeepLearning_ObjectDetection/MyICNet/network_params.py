@@ -7,17 +7,19 @@ class NetParams:
         self._initializer = 'he_normal'
         # for conv net
         self._padding = 'SAME'
-        # for weight decay
-        # self._weight_decay = 0.0005
         # for adam opt
         self._adam_beta1 = 0.9
         self._adam_beta2 = 0.999
-        # for grid search of regularizers
-        self._use_data_aug = True
-        # self._use_weight_decay = True
+        # for batch normalization
+        self._use_batch_norm = True
+        # for weight decay
+        self._use_weight_decay = False
+        self._weight_decay = 0.0005
+        # for drop out
+        self._use_drop = False
+        self._drop_rate = 0.2
         # network paramter placeholders that will defined in NetworkModel
-        self.ph_learning_rate = None
-
+        self._learning_rate_ph = None
         # for ICNet
         self._class_num = 19
 
@@ -47,6 +49,46 @@ class NetParams:
         self._padding = new_padding
 
     @property
+    def adam_beta1(self):
+        return self._adam_beta1
+
+    @adam_beta1.setter
+    def adam_beta1(self, new_adam_beta1):
+        self._adam_beta1 = new_adam_beta1
+
+    @property
+    def adam_beta2(self):
+        return self._adam_beta2
+
+    @adam_beta2.setter
+    def adam_beta2(self, new_adam_beta2):
+        self._adam_beta2 = new_adam_beta2
+
+    @property
+    def use_batch_norm(self):
+        return self._use_batch_norm
+
+    @use_batch_norm.setter
+    def use_batch_norm(self, new_use_batch_norm):
+        self._use_batch_norm = new_use_batch_norm
+
+    @property
+    def use_weight_decay(self):
+        return self._use_weight_decay
+
+    @use_weight_decay.setter
+    def use_weight_decay(self, new_use_weight_decay):
+        self._use_weight_decay = new_use_weight_decay
+
+    @property
+    def weight_decay(self):
+        return self._weight_decay
+
+    @weight_decay.setter
+    def weight_decay(self, new_weight_decay):
+        self._weight_decay = new_weight_decay
+
+    @property
     def use_drop(self):
         return self._use_drop
 
@@ -63,52 +105,12 @@ class NetParams:
         self._drop_rate = new_drop_rate
 
     @property
-    def weight_decay(self):
-        return self._weight_decay
+    def learning_rate_ph(self):
+        return self._learning_rate_ph
 
-    @weight_decay.setter
-    def weight_decay(self, new_weight_decay):
-        self._weight_decay = new_weight_decay
-
-    @property
-    def use_batch_norm(self):
-        return self._use_batch_norm
-
-    @use_batch_norm.setter
-    def use_batch_norm(self, new_use_batch_norm):
-        self._use_batch_norm = new_use_batch_norm
-
-    @property
-    def use_data_aug(self):
-        return self._use_data_aug
-
-    @use_data_aug.setter
-    def use_data_aug(self, new_use_data_aug):
-        self._use_data_aug = new_use_data_aug
-
-    @property
-    def use_weight_decay(self):
-        return self._use_weight_decay
-
-    @use_weight_decay.setter
-    def use_weight_decay(self, new_use_weight_decay):
-        self._use_weight_decay = new_use_weight_decay
-
-    @property
-    def adam_beta1(self):
-        return self._adam_beta1
-
-    @adam_beta1.setter
-    def adam_beta1(self, new_adam_beta1):
-        self._adam_beta1 = new_adam_beta1
-
-    @property
-    def adam_beta2(self):
-        return self._adam_beta2
-
-    @adam_beta2.setter
-    def adam_beta2(self, new_adam_beta2):
-        self._adam_beta2 = new_adam_beta2
+    @learning_rate_ph.setter
+    def learning_rate_ph(self, new_learning_rate_ph):
+        self._learning_rate_ph = new_learning_rate_ph
 
     @property
     def class_num(self):

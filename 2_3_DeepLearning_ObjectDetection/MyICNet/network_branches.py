@@ -1,4 +1,5 @@
 import numpy as np
+import tensorflow.compat.v1 as tf
 import network_layers as nls
 import pdb
 
@@ -55,7 +56,7 @@ class LowBranch(nls.Layer):
         res_blk_layer.op(iCin=2048, iCout=2048, istride=1, idilations=4, sactivation='ReLu', sname='lowbr_conv5_2')
         res_blk_layer.op(iCin=2048, iCout=2048, istride=1, idilations=6, sactivation='ReLu', sname='lowbr_conv5_3')
         pyramidpool_layer.op(sname='lowbr_pyramidpool')
-        convbnact_layer.op(lfilter_shape=(1, 1, 2048, 256), buse_bias=True, sactivation='ReLu', sname='lowbr_dim_reduction')
+        convbnact_layer.op(lfilter_shape=(1, 1, 2048, 256), buse_bias=True, sactivation='ReLu', sname='11_lowbr_dim_reduction')
         return self.retrieve_from_terminal()
 
 
@@ -84,33 +85,34 @@ class CFFModule(nls.Layer):
         self.term_name = term_name
 
     # tinputs: F1 as lowbr_tap up until this point, F2 as inputs which is actually midbr output
-    def build(self, tinputs_f1, tinputs_f2, label):
+    def build(self, tinputs_f1, tinputs_f2):
         addon_layer = nls.AddOnLayer(self.net_params, term_name=self.term_name)
         conv_layer = nls.ConvLayer(self.net_params, term_name=self.term_name)
         sname = term_name
 
         # for F1
         self.push_to_terminal(tinputs_f1)
-        t_f1_tap = addon_layer.resize_images(np.multiply(lowbr_tap.shape[1:3], 2), sname=sname + '_upsample_by_2')
-        conv_layer.op(lfilter_shape=(3, 3, 256, 128), idilations=2, buse_bias=True, sname=sname + '_F1_conv')
-        t_f1_out = addon_layer.batch_norm(iCin=128, smode='CONV', sname=sname + '_F1_bn')
+        f1_hw_dim = tinputs_f1.shape[1:3]
+        f1_c_dim = tinputs_f1.shape[3]
+        t_f1_tap = addon_layer.resize_images(np.multiply(f1_hw_dim, 2), sname=sname+'_upsample_by_2')
+        conv_layer.op(lfilter_shape=(3, 3, f1_c_dim, 128), idilations=2, buse_bias=True, sname=sname+'_F1_conv')
+        t_f1_out = addon_layer.batch_norm(iCin=128, smode='CONV', sname=sname+'_F1_bn')
 
         # for F1 loss
         self.push_to_terminal(t_f1_tap)
-        t_f1_classfied = conv_layer.op(lfilter_shape=(1, 1, 256, self.net_params.class_num), buse_bias=True, sname=sname + '_F1_class_conv')
+        t_f1_classified = conv_layer.op(lfilter_shape=(1, 1, f1_c_dim, self.net_params.class_num), buse_bias=True, sname='11_'+sname+'_F1_class_conv')
 
         # for F2
         self.push_to_terminal(tinputs_f2)
-        # sjy addition; check it out!!!!
-        # convbnact_layer.op(lfilter_shape=(1, 1, 512, 256), buse_bias=True, sactivation='ReLu', sname='CFF_midbr_dim_reduction')
-        conv_layer.op(lfilter_shape=(1, 1, 512, 128), buse_bias=True, sname=sname + '_F2_conv')
-        t_f2_out = addon_layer.batch_norm(iCin=128, smode='CONV', sname=sname + '_F2_bn')
+        f2_c_dim = tinputs_f2.shape[3]
+        conv_layer.op(lfilter_shape=(1, 1, f2_c_dim, 128), buse_bias=True, sname='11_'+sname+'_F2_conv')
+        t_f2_out = addon_layer.batch_norm(iCin=128, smode='CONV', sname=sname+'_F2_bn')
 
         # sum and act
-        t_summed = tf.math.add(t_f1_out, t_f2_out, name=sname + '_sum'))
+        t_summed = tf.math.add(t_f1_out, t_f2_out, name=sname+'_sum')
         self.push_to_terminal(t_summed)
-        t_act_out = self.addon_layer.activation(sactivation, sname=sname + '_summed_act')
+        t_act_out = self.addon_layer.activation(sactivation, sname=sname+'_summed_act')
 
-        return t_f1_classified t_act_out
+        return t_f1_classified, t_act_out
 
 

@@ -3,15 +3,11 @@ import logging
 
 
 class Settings:
-
     def __init__(self):
         _args = self._get_arguments()
-
-        self.num_epoch = 10
-        self.batch_size = 20
-        self.learning_rate = 0.0005
-
-        self.net_type = _args.net_type
+        self.num_epoch = 100
+        self.batch_size = 16
+        self.learning_rate = 0.001
         self.ld_epoch = _args.ld_epoch
         self.ckpt_dir = _args.ckpt_dir
         self.tb_log_dir = _args.tb_log_dir
@@ -19,14 +15,9 @@ class Settings:
 
     def _get_arguments(self):
         parser = argparse.ArgumentParser('Implementation for PyNet handwritten digits 2021')
-        parser.add_argument('--net_type', 
-                            type=str, 
-                            default = 'PyNet',
-                            help='Parameter for Network Selection', 
-                            required = False)
-        parser.add_argument('--ld_epoch', 
+        parser.add_argument('--ld_epoch',
                             type=int, 
-                            default=300,
+                            default=50,
                             help='Learning Rate Linear Decay Start Epoch', 
                             required = False)
         parser.add_argument('--ckpt_dir', 

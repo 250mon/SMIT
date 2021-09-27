@@ -233,7 +233,7 @@ class MaxPoolLayer(Layer):
                                  ipool_size,
                                  istride,
                                  spadding,
-                                 name=sname + '_maxpool')
+                                 name=sname+'_maxpool')
             self.push_to_terminal(x)
             return x
 
@@ -258,7 +258,7 @@ class AvgPoolLayer(Layer):
 
                 spadding = 'VALID'
 
-            x = tf.nn.avg_pool2d(tinputs, ipool_size, istride, spadding, name=sname + '_avgpool')
+            x = tf.nn.avg_pool2d(tinputs, ipool_size, istride, spadding, name=sname+'_avgpool')
             self.push_to_terminal(x)
             return x
 
@@ -286,12 +286,12 @@ class PyramidPoolLayer(Layer):
             ltensors = []
             for lpool_size in lpool_sizes:
                 # avg pooling; AvgPoolLayer is implemented for ipool_size, not for lpool_size 
-                tpooled = tf.nn.avg_pool2d(tinputs, lpool_size, lpool_size, spadding, name=sname + '_avgpool')
+                tpooled = tf.nn.avg_pool2d(tinputs, lpool_size, lpool_size, spadding, name=sname+'_avgpool')
                 self.push_to_terminal(tpooled)
                 # reduction of the channels by a quarter
-                self.conv_layer.op(lfilter_shape=(1, 1, tinputs.shape[3], tinputs.shape[3] // 4), sname=sname + '_conv')
+                self.conv_layer.op(lfilter_shape=(1, 1, tinputs.shape[3], tinputs.shape[3] // 4), sname='11_'+sname+'_conv')
                 # upsampling back to the original hxw
-                tpooled_out = self.addon_layer.resize_images(tsize=tensor_size, sname=sname + '_resize')
+                tpooled_out = self.addon_layer.resize_images(tsize=tensor_size, sname=sname+'_resize')
                 ltensors.append(tpooled_out)
 
             tpooled_concat = tf.concat(ltensors, axis=3)
@@ -313,16 +313,16 @@ class AddOnLayer(Layer):
                 sactivation = self.net_params.activation
 
             if sactivation == 'ReLu':
-                x = tf.nn.relu(tinputs, name=sname + '_ReLu')
+                x = tf.nn.relu(tinputs, name=sname+'_ReLu')
             elif sactivation == 'LReLu':
-                x = tf.nn.leaky_relu(tinputs, name=sname + '_LReLu')
+                x = tf.nn.leaky_relu(tinputs, name=sname+'_LReLu')
             elif sactivation == 'PReLu':
                 slope = tf.get_variable(name='slope', initializer=tf.constant(0.2))
-                x = tf.where(tf.less(tinputs, 0.), tinputs * slope, tinputs, name=sname + '_PReLu')
+                x = tf.where(tf.less(tinputs, 0.), tinputs * slope, tinputs, name=sname+'_PReLu')
             elif sactivation == 'TanH':
-                x = tf.nn.tanh(tinputs, name=sname + '_TanH')
+                x = tf.nn.tanh(tinputs, name=sname+'_TanH')
             elif sactivation == 'SWISH':
-                x = tf.nn.swish(tinputs, name=sname + '_SWISH')
+                x = tf.nn.swish(tinputs, name=sname+'_SWISH')
             else:
                 raise NotImplementedError(
                     'sactivation parameter ({:s}) is not defined'.format(
@@ -390,14 +390,18 @@ class AddOnLayer(Layer):
             # sh_x2.assign_add(batch_var + batch_mean ** 2)
 
             count, sh_x, sh_x2 = tf.cond(
-                brst, lambda: (count.assign(1.0), sh_x.assign(batch_mean),
+                brst,
+                lambda: (count.assign(1.0), sh_x.assign(batch_mean),
                                sh_x2.assign(batch_var + batch_mean**2)),
-                lambda: (tf.cond(
-                    btrain, lambda:
-                    (count.assign_add(1.0), sh_x.assign_add(batch_mean),
-                     sh_x2.assign_add(batch_var + batch_mean**2)), lambda:
-                    (tf.identity(count), tf.identity(sh_x), tf.identity(sh_x2)
-                     ))))
+                lambda: (
+                    tf.cond(
+                        btrain,
+                        lambda: (count.assign_add(1.0), sh_x.assign_add(batch_mean),
+                         sh_x2.assign_add(batch_var + batch_mean**2)),
+                        lambda: (tf.identity(count), tf.identity(sh_x), tf.identity(sh_x2))
+                    )
+                )
+            )
 
             def mean_var_with_update():
                 # tf.control_dep determines the order of variables evalution
@@ -477,7 +481,7 @@ class DenseBnActLayer(Layer):
 
     def op(self, iout_nodes=10, sactivation=None, sname='densebnact', *args, **kwargs):
         self.dense_layer.op(iout_nodes=iout_nodes, sname=sname, *args, **kwargs)
-        self.addon_layer.batch_norm(iCin=iout_nodes, smode='DENSE', sname=sname + '_bn')
+        self.addon_layer.batch_norm(iCin=iout_nodes, smode='DENSE', sname=sname+'_bn')
         # net param as default
         if sactivation is None:
             sactivation = self.net_params.activation
@@ -531,7 +535,7 @@ class ConvBnActLayer(Layer):
                            sname=sname,
                            *args,
                            **kwargs)
-        self.addon_layer.batch_norm(iCin=lfilter_shape[3], smode='CONV', sname=sname + '_bn')
+        self.addon_layer.batch_norm(iCin=lfilter_shape[3], smode='CONV', sname=sname+'_bn')
         # net param as default
         if sactivation is None:
             sactivation = self.net_params.activation
@@ -548,7 +552,7 @@ class ConvInActLayer(Layer):
 
     def op(self, lfilter_shape=[3, 3, 1, 1], sactivation=None, sname='convinact', *args, **kwargs):
         self.conv_layer.op(lfilter_shape=lfilter_shape, sname=sname, *args, **kwargs)
-        self.addon_layer.ins_norm(iCin=lfilter_shape[3], sname=sname + '_in')
+        self.addon_layer.ins_norm(iCin=lfilter_shape[3], sname=sname+'_in')
         # net param as default
         if sactivation is None:
             sactivation = self.net_params.activation
@@ -584,7 +588,7 @@ class ResBlockLayer(Layer):
             # H x W => H/2 x W/2: The initial stride convolution should be accounted by avgpool
             if istride != 1:
                 self.avgpool.push_to_terminal(tinputs)
-                branch1_out = self.avgpool.op(ipool_size=2, istride=2, spadding='SAME', sname=sname + '0')
+                branch1_out = self.avgpool.op(ipool_size=2, istride=2, spadding='SAME', sname=sname+'0')
             else:
                 branch1_out = tinputs
             # C => 2C: The input and ouput channels are different, padding is needed
@@ -597,12 +601,12 @@ class ResBlockLayer(Layer):
                 branch1_out = tf.pad(branch1_out, tpadding, 'CONSTANT')
 
             if self.type == 'SHORT':
-                self.convact_layer.op(lfilter_shape=(3, 3, iCin, iCout), istride=istride, sname=sname + '_conv1')
-                self.conv_layer.op(lfilter_shape=(3, 3, iCout, iCout), sname=sname + '_conv2')
+                self.convact_layer.op(lfilter_shape=(3, 3, iCin, iCout), istride=istride, sname=sname+'_conv1')
+                self.conv_layer.op(lfilter_shape=(3, 3, iCout, iCout), sname=sname+'_conv2')
             elif self.type == 'LONG':
-                self.convact_layer.op(lfilter_shape=(1, 1, iCin, iCout // 4), istride=istride, sname=sname + '_conv1')
-                self.convact_layer.op(lfilter_shape=(3, 3, iCout // 4, iCout // 4), idilations=idilations, sname=sname + '+_conv2')
-                self.conv_layer.op(lfilter_shape=(1, 1, iCout // 4, iCout), sname=sname + '_conv3')
+                self.convact_layer.op(lfilter_shape=(1, 1, iCin, iCout // 4), istride=istride, sname='11_'+sname+'_conv1')
+                self.convact_layer.op(lfilter_shape=(3, 3, iCout // 4, iCout // 4), idilations=idilations, sname=sname+'_conv2')
+                self.conv_layer.op(lfilter_shape=(1, 1, iCout // 4, iCout), sname='11_'+sname+'_conv3')
 
             # identity mapping
             mapped_out = tf.math.add(branch1_out, self.retrieve_from_terminal())
@@ -650,14 +654,14 @@ if __name__ == '__main__':
     input_tensor = np.array(np.eye(12, dtype=int)) # hxw
     input_tensor = input_tensor[np.newaxis, :, :, np.newaxis] # nxhxwxc
 
-    # # test resize_images
-    # addon_layer = AddOnLayer(0)
-    # # output_tensor = addon_layer.push_to_terminal(input_tensor).resize_images((4, 4))
-    # output_tensor = addon_layer.resize_images((np.multiply(input_tensor.shape[1:3], 0.5)).astype(np.int32))
-    # print(input_tensor)
-    # print(output_tensor)
+    # test resize_images
+    addon_layer = AddOnLayer(0)
+    # output_tensor = addon_layer.push_to_terminal(input_tensor).resize_images((4, 4))
+    output_tensor = addon_layer.push_to_terminal(input_tensor).resize_images((np.multiply(input_tensor.shape[1:3], 0.5)).astype(np.int32))
+    print(input_tensor)
+    print(output_tensor)
 
     # test pyramid pooling
-    pyramid_layer = PyramidPoolLayer(0)
-    pyramid_layer.push_to_terminal(input_tensor).op()
+    # pyramid_layer = PyramidPoolLayer(0)
+    # pyramid_layer.push_to_terminal(input_tensor).op()
 
