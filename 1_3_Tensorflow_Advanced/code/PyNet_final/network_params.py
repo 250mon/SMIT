@@ -5,18 +5,23 @@ class NetParams:
         # global parameters that are shared in common by all the network components
         self._activation = 'LReLu'
         self._initializer = 'he_normal'
-        # for conv net
         self._padding = 'SAME'
-        # for weight decay
-        # self._weight_decay = 0.0005
+        self._weight_decay = 0.0005
+        self._drop_rate = 0.2
         # for adam opt
         self._adam_beta1 = 0.9
         self._adam_beta2 = 0.999
         # for grid search of regularizers
+        self._use_drop = False
+        self._use_weight_decay = False
+        self._use_batch_norm = False
         self._use_data_aug = True
-        # self._use_weight_decay = True
+
         # network paramter placeholders that will defined in NetworkModel
         self.ph_learning_rate = None
+        self.ph_bn_reset = None
+        self.ph_bn_train = None
+        self.ph_use_drop = None
 
     @property
     def activation(self):

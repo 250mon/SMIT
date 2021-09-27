@@ -372,7 +372,7 @@ class AddOnLayer(Layer):
             return None
         """
         CONV Mode - mean and variance for axis=[0, 1, 2] (NxHxWxC),
-                    i.e., only channel dimension is survived
+                    i.e., only channel dimension survives
         DENSE Mode - mean and variance for axis=[0] (NxC),
                     i.e., only batch dimension is normalized
         """

@@ -569,10 +569,10 @@ class ResBlockLayer(Layer):
         self.net_params = net_params
         self.type = type
         if self.net_params.use_batch_norm:
-            self.convact_layer = ConvBnActLayer(self.net_params)
+            self.convact_layer = ConvBnActLayer(self.net_params, term_name=term_name)
         else:
-            self.convact_layer = ConvActLayer(self.net_params)
-        self.conv_layer = ConvLayer(self.net_params)
+            self.convact_layer = ConvActLayer(self.net_params, term_name=term_name)
+        self.conv_layer = ConvLayer(self.net_params, term_name=term_name)
         self.addon_layer = AddOnLayer(self.net_params, term_name=term_name)
         self.avgpool = AvgPoolLayer(self.net_params, term_name='branch')
 
@@ -604,9 +604,9 @@ class ResBlockLayer(Layer):
                 self.convact_layer.op(lfilter_shape=(3, 3, iCin, iCout), istride=istride, sname=sname+'_conv1')
                 self.conv_layer.op(lfilter_shape=(3, 3, iCout, iCout), sname=sname+'_conv2')
             elif self.type == 'LONG':
-                self.convact_layer.op(lfilter_shape=(1, 1, iCin, iCout // 4), istride=istride, sname='11_'+sname+'_conv1')
-                self.convact_layer.op(lfilter_shape=(3, 3, iCout // 4, iCout // 4), idilations=idilations, sname=sname+'_conv2')
-                self.conv_layer.op(lfilter_shape=(1, 1, iCout // 4, iCout), sname='11_'+sname+'_conv3')
+                self.convact_layer.op(lfilter_shape=(1, 1, iCin, iCout//4), istride=istride, sname='11_'+sname+'_conv1')
+                self.convact_layer.op(lfilter_shape=(3, 3, iCout//4, iCout//4), idilations=idilations, sname=sname+'_conv2')
+                self.conv_layer.op(lfilter_shape=(1, 1, iCout//4, iCout), sname='11_'+sname+'_conv3')
 
             # identity mapping
             mapped_out = tf.math.add(branch1_out, self.retrieve_from_terminal())

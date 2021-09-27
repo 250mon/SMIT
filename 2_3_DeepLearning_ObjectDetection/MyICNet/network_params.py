@@ -1,7 +1,6 @@
 class NetParams:
-    def __init__(self, img_classifier):
-        self.img_classifier = img_classifier
-        self.settings = img_classifier.settings
+    def __init__(self, icnet):
+        self.icnet = icnet
         # global parameters that are shared in common by all the network components
         self._activation = 'LReLu'
         self._initializer = 'he_normal'
@@ -13,16 +12,21 @@ class NetParams:
         # for batch normalization
         self._use_batch_norm = True
         # for weight decay
-        self._use_weight_decay = False
+        self._use_weight_decay = True
         self._weight_decay = 0.0005
         # for drop out
         self._use_drop = False
         self._drop_rate = 0.2
-        # network paramter placeholders that will defined in NetworkModel
-        self._learning_rate_ph = None
-        # for ICNet
-        self._class_num = 19
 
+        # network paramter placeholders that will defined in NetworkModel
+        # no need of setters/getters
+        self.ph_learning_rate = None
+        self.ph_bn_reset = None
+        self.ph_bn_train = None
+        self.ph_use_drop = None
+
+        # for ICNet; class_num = 19
+        self.class_num = icnet.dataset.cityscape_data['class_num']
 
     @property
     def activation(self):
@@ -103,19 +107,3 @@ class NetParams:
     @drop_rate.setter
     def drop_rate(self, new_drop_rate):
         self._drop_rate = new_drop_rate
-
-    @property
-    def learning_rate_ph(self):
-        return self._learning_rate_ph
-
-    @learning_rate_ph.setter
-    def learning_rate_ph(self, new_learning_rate_ph):
-        self._learning_rate_ph = new_learning_rate_ph
-
-    @property
-    def class_num(self):
-        return self._class_num
-
-    @class_num.setter
-    def class_num(self, new_class_num):
-        self._class_num = new_class_num

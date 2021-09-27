@@ -1,7 +1,6 @@
 import tensorflow.compat.v1 as tf
 import numpy as np
 import network_branches as nbr
-import util_datasets
 import pdb
 
 
@@ -11,14 +10,16 @@ class NetModel():
         self.settings = ic_net.settings
         # getting global network parameters
         self.net_params = ic_net.net_params
-        self.vgg19 = util_datasets.NeuralLoss()
         # placeholders for inputs
-        self.t_batch_img = tf.placeholder(dtype=tf.uint16, name='input_images')
+        self.t_batch_img = tf.placeholder(dtype=tf.uint8, name='input_images')
         self.t_batch_lab = tf.placeholder(dtype=tf.uint8, name='image_labels')
         # placeholders of net_params
-        self.net_params.learning_rate_ph = tf.placeholder(dtype=tf.float32, name='learning_rate')
+        self.net_params.ph_learning_rate = tf.placeholder(dtype=tf.float32, name='learning_rate')
+        self.net_params.ph_bn_reset = tf.placeholder(dtype=tf.bool, name='b_bn_reset')
+        self.net_params.ph_bn_train = tf.placeholder(dtype=tf.bool, name='b_bn_train')
+        self.net_params.ph_use_drop = tf.placeholder(dtype=tf.bool, name='b_drop_out')
         # for tensorboard summary creation of loss and accuracy
-        self.summary_ph = tf.placeholder(dtype=tf.float32, name='sum_losses')
+        self.ph_summary = tf.placeholder(dtype=tf.float32, name='sum_losses')
 
         # for debugging
         self.t_probes = None
@@ -59,14 +60,15 @@ class NetModel():
         highbr = nbr.MidBranch(self.ic_net)
         cff1 = nbr.CFFModule(self.ic_net, term_name='cff1')
         cff2 = nbr.CFFModule(self.ic_net, term_name='cff2')
+        org_size = self._get_org_hw_size()
 
-        t_midbr_conv_out = midbr.build(inputi 1/4)
+        t_midbr_conv_out = midbr.build(self._resize_images(self.t_inputs, (org_size*0.5).astype(np.int32)))
         t_lowbr_out = lowbr.build(t_midbr_conv_out)
         # t_lowbr_pred 1/16
         t_lowbr_pred, t_midbr_out = cff1.build(t_lowbr_out, t_midbr_conv_out)
         lowbr_loss = self._loss(t_lowbr_pred, self.t_level_labs['lowbr'])
 
-        t_highbr_conv_out = highbr.build(input 1/2)
+        t_highbr_conv_out = highbr.build(self.t_inputs)
         # t_midbr_pred 1/8
         t_midbr_pred, t_highbr_out = cff2.build(t_midbr_out, t_highbr_conv_out)
         midbr_loss = self._loss(t_midbr_pred, self.t_level_labs['midbr'])
@@ -82,12 +84,16 @@ class NetModel():
         t_outputs = {'highbr': t_highbr_pred, 'main': t_main_out}
         return loss, t_outputs
 
+    # image and label size (h x w) are the same
+    def _get_org_hw_size(self):
+        return np.array(self.ic_net.dataset.TRAIN_SIZE)
+
     # input size: (h, w)
-    def _resize_images(t_images, size):
+    def _resize_images(self, t_images, size):
         return tf.image.resize_bilinear(t_images, size, align_corners=True)
 
     # input size: (h, w)
-    def _resize_labels(t_labels, size):
+    def _resize_labels(self, t_labels, size):
         return tf.image.resize_nearest_neighbor(t_labels, size, align_corners=True)
 
     def _create_branch_labels(self):
@@ -97,7 +103,7 @@ class NetModel():
                 'midbr': 0.125,
                 'lowbr': 0.0625,
                 }
-        org_size = np.array(self.t_batch_lab.shape[1:3])
+        org_size = self._get_org_hw_size()
         factors_num = np.array(list(factors.values()))
         sizes = np.outer(factors_num, org_size)
 
@@ -142,7 +148,7 @@ class NetModel():
 
     def _create_optimizer(self, op_to_minimize, name='Adam'):
         opt = tf.train.AdamOptimizer(
-            learning_rate=self.net_params.learning_rate_ph,
+            learning_rate=self.net_params.ph_learning_rate,
             beta1=self.net_params.adam_beta1,
             beta2=self.net_params.adam_beta2,
             name=name,
@@ -151,6 +157,6 @@ class NetModel():
         return train_op
 
     def _create_summary(self):
-        loss = tf.summary.scalar("Loss", self.summary_ph[0])
-        accuracy = tf.summary.scalar("Accuracy", self.summary_ph[1])
-        return tf.summary.merge((loss, accuracy))
+        loss = tf.summary.scalar("Loss", self.ph_summary[0])
+        loss_wd = tf.summary.scalar("Accuracy", self.ph_summary[1])
+        return tf.summary.merge((loss, loss_wd))
