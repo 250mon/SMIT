@@ -34,9 +34,6 @@ class _TerminalHandler:
     def create_terminal(self, term_name):
         self.terminals.setdefault(term_name, [])
 
-    def get_terminal(self, term_name):
-        return self.terminals[term_name]
-
     def pull_terminal(self, term_name):
         return self.terminals[term_name]
 

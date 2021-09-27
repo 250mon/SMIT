@@ -141,8 +141,7 @@ class PyNet():
         # when multiple GPUs - gpu_options =
         #   tf.GPUOptions(allow_growth=True, allocator_type='BFC', visible_device_list="0,1")
         gpu_options = tf.GPUOptions(allow_growth=True, allocator_type='BFC')
-        config = tf.ConfigProto(gpu_options=gpu_options,
-                                allow_soft_placement=True)
+        config = tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True)
         # create tensorflow session
         sess = tf.Session(config=config)
         # initialize all tensorflow variables (assign initial values)
@@ -152,8 +151,7 @@ class PyNet():
     def _create_optimizers(self):
         train_ops = {}
         for lv_name, loss_op in self.t_loss_ops.items():
-            train_ops[lv_name] = self._create_optimizer(
-                loss_op, lv_name + '_Adam')
+            train_ops[lv_name] = self._create_optimizer( loss_op, lv_name + '_Adam')
         return train_ops
 
     def _create_optimizer(self, op_to_minimize, name='Adam'):
@@ -174,5 +172,4 @@ class PyNet():
         lvl5_loss = tf.summary.scalar("Lv5_Loss", self.sum_losses[4])
         accuracy = tf.summary.scalar("Accuracy", self.sum_losses[5])
 
-        return tf.summary.merge(
-            (lvl1_loss, lvl2_loss, lvl3_loss, lvl4_loss, lvl5_loss, accuracy))
+        return tf.summary.merge((lvl1_loss, lvl2_loss, lvl3_loss, lvl4_loss, lvl5_loss, accuracy))
