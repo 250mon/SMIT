@@ -2,7 +2,7 @@ class NetParams:
     def __init__(self, icnet):
         self.icnet = icnet
         # global parameters that are shared in common by all the network components
-        self._activation = 'LReLu'
+        self._activation = 'ReLu'
         self._initializer = 'he_normal'
         # for conv net
         self._padding = 'SAME'

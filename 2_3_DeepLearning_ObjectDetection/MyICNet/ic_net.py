@@ -80,10 +80,12 @@ class ICNet:
         p_feed_dict = self._partial_feed_dict(epoch)
         num_of_batches = self.dataset.num_of_batches
         mean_cost = 0.
+        mean_cost_wd = 0.
 
         for step in range(num_of_batches):
-            if step % 100 == 0:
-                print(f"Step {step}/{num_of_batches} running...")
+            # if step % 100 == 0:
+            #     print(f"Step {step}/{num_of_batches} running...")
+            print(f"Step {step}/{num_of_batches} running...")
 
             batch_images, batch_labels = self.dataset.next_batch()
             feed_dict = {
@@ -93,35 +95,25 @@ class ICNet:
                 **p_feed_dict,
             }
 
-            _, loss, loss_wd, outputs = self.network.session.run(
-                (self.network.train_ops, self.network.loss, self.network.loss_wd, self.network.t_outputs),
+            _, loss, loss_wd, pred_labels = self.network.session.run(
+                (self.network.train_ops, self.network.loss, self.network.loss_wd, self.network.t_pred_labels),
                 feed_dict=feed_dict)
 
             # pdb.set_trace()
             mean_cost += loss
             mean_cost_wd += loss_wd
 
-            # if it is the last step of the level, then show images
+            # if it is the last step of the epoch, then show images
             if step == num_of_batches - 1:
-                self.validate_imgs(outputs, batch_labels, f'e{epoch:05d}')
+                self.validate_imgs(pred_labels, batch_labels, f'e{epoch:05d}')
         # calculate mean of losses of minibatch
         mean_cost /= float(num_of_batches)
         mean_cost_wd /= float(num_of_batches)
         return mean_cost, mean_cost_wd
 
     # show or/and save the label/output images of training
-    def validate_imgs(self, outputs, labels, title):
-        pass
-        # v_min = outputs.min()
-        # v_max = outputs.max()
-        # outputs = ((outputs - v_min) / (v_max - v_min) * 255).astype(np.uint8)
-        #
-        # resized_labels = self.dataset.resize_label(labels, outputs)
-        #
-        # util_datasets.show_zurich(outputs,
-        #                           resized_labels,
-        #                           title,
-        #                           save=True)
+    def validate_imgs(self, pred_labels, labels, title):
+        self.dataset.show_cityscapes_ids(pred_labels, labels, title, save=True)
 
     def evaluate(self, save_output=False):
         pass
@@ -189,8 +181,9 @@ class ICNet:
         # Summary and Ceckpoint
         # ################################################################
         feed_dict = {
-            self.network.sum_losses:
-            (mean_cost_wd, mean_cost, total_accuracy)
+            self.network.ph_summary:
+            # (mean_cost_wd, mean_cost, total_accuracy)
+            (mean_cost, mean_cost_wd)
         }
         summaries = self.network.session.run(self.network.summaries, feed_dict=feed_dict)
         self.network.summary_writer.add_summary(summaries, epoch)

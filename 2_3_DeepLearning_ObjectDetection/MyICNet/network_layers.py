@@ -1,5 +1,8 @@
 import numpy as np
+import sys
 import tensorflow.compat.v1 as tf
+
+tf.disable_eager_execution()
 
 
 class CommonFunc:
@@ -150,6 +153,7 @@ class ConvLayer(Layer):
                 spadding = 'VALID'
             # Convolution
             x = tf.nn.conv2d(tinputs, kernels, strides=(1, istride, istride, 1), padding=spadding, dilations=idilations)
+            # tf.print(x, output_stream=sys.stdout)
             # Adding a bias, if any
             if buse_bias:
                 bias = tf.get_variable( name='bias', shape=(lfilter_shape[3]), initializer=tf.constant_initializer(value=0))
@@ -611,6 +615,7 @@ class ResBlockLayer(Layer):
             # identity mapping
             mapped_out = tf.math.add(branch1_out, self.retrieve_from_terminal())
             self.push_to_terminal(mapped_out)
+            # tf.print(mapped_out, output_stream=sys.stdout)
 
             # activation 'ReLu' as default
             # addon_layer has its own terminal functionality

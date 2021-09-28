@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import tensorflow.compat.v1 as tf
 import network_layers as nls
@@ -59,9 +60,8 @@ class LowBranch(nls.Layer):
         convbnact_layer.op(lfilter_shape=(1, 1, 2048, 256), buse_bias=True, sname='11_lowbr_dim_reduction')
         return self.retrieve_from_terminal()
 
-
-class HighBranch(nls.Layer):
-    def __init__(self, ic_net, term_name='high_br'):
+class HighBranchPre(nls.Layer):
+    def __init__(self, ic_net, term_name='high_br_pre'):
         super().__init__(term_name)
         self.ic_net = ic_net
         self.net_params = ic_net.net_params
@@ -71,11 +71,28 @@ class HighBranch(nls.Layer):
         convbnact_layer = nls.ConvBnActLayer(self.net_params, term_name=self.term_name)
 
         self.push_to_terminal(tinputs)
-        convbnact_layer.op(lfilter_shape=(3, 3, 3, 32), istride=2, buse_bias=True, sname='highbr_conv1_1')
-        convbnact_layer.op(lfilter_shape=(3, 3, 32, 32), istride=2, buse_bias=True, sname='highbr_conv1_2')
-        convbnact_layer.op(lfilter_shape=(3, 3, 32, 64), istride=2, buse_bias=True, sname='highbr_conv1_3')
+        convbnact_layer.op(lfilter_shape=(3, 3, 3, 32), istride=2, buse_bias=True, sname=self.term_name+'_conv1_1')
+        convbnact_layer.op(lfilter_shape=(3, 3, 32, 32), istride=2, buse_bias=True, sname=self.term_name+'_conv1_2')
+        convbnact_layer.op(lfilter_shape=(3, 3, 32, 64), istride=2, buse_bias=True, sname=self.term_name+'_conv1_3')
         return self.retrieve_from_terminal()
 
+class HighBranchPost(nls.Layer):
+    def __init__(self, ic_net, term_name='high_br_post'):
+        super().__init__(term_name)
+        self.ic_net = ic_net
+        self.net_params = ic_net.net_params
+        self.term_name = term_name
+
+    def build(self, tinputs):
+        addon_layer = nls.AddOnLayer(self.net_params, term_name=self.term_name)
+        conv_layer = nls.ConvLayer(self.net_params, term_name=self.term_name)
+
+        self.push_to_terminal(tinputs)
+        t_tap = addon_layer.resize_images(np.array(tinputs.shape[1:3])*2, sname=self.term_name+'_upsample_by_2')
+        t_high_classified = conv_layer.op(lfilter_shape=(1, 1, tinputs.shape[3], self.net_params.class_num), buse_bias=True, sname='11_'+self.term_name+'_F1_class_conv')
+        addon_layer.resize_images(np.array(t_tap.shape[1:3])*4, sname=self.term_name+'_upsample_by_4')
+        # The final output retrieved has 19 channels
+        return t_high_classified, self.retrieve_from_terminal()
 
 class CFFModule(nls.Layer):
     def __init__(self, ic_net, term_name='CFF'):

@@ -24,8 +24,9 @@ class CityscapesReader(object):
             , [119, 10, 32]]
         # 18 = bicycle
 
-        self.dataset_root = '/mnt/e/Datasets'
-        self.dataset_dir = 'cityscape_subset'
+        # self.dataset_root = '/mnt/e/Datasets'
+        self.dataset_root = 'C:\\Users\\idiot\\sjy\\Datasets'
+        self.dataset_dir = 'cityscape-dist'
         self.cityscape_data = {
             'train_img_path': os.path.join(self.dataset_root, self.dataset_dir, 'leftImg8bit', 'train'),
             'train_label_path': os.path.join(self.dataset_root, self.dataset_dir, 'gtFine', 'train'),
@@ -34,6 +35,8 @@ class CityscapesReader(object):
         }
 
         self.batch_size = settings.batch_size
+        self.output_dir = settings.res_dir
+        os.makedirs(self.output_dir, exist_ok=True)
         self.num_of_batches = 2975 // self.batch_size
         self.augmentation = True
         self.resize_low = 0.5
@@ -170,6 +173,7 @@ class CityscapesReader(object):
         print('Closing Processes....................................')
         time.sleep(1)
 
+    # show 16 images into 4 x 4 formats
     def show_cityscapes(self, images, labels):
         sq_row = int(np.sqrt(np.shape(images)[0]))
         total_image = []
@@ -198,5 +202,50 @@ class CityscapesReader(object):
         cv2.imshow('Label Image', show_lab.astype(np.uint8))
         key = cv2.waitKey(0)
         return key
-        
-    
+
+    # show only one image
+    def show_cityscapes_ids(self, images, labels, title, save=False):
+        # process only the first image of the list
+        # show_img = images[0]
+        # show_lab = labels[0]
+
+        # process only the first image of the list
+        # sq_row = int(np.sqrt(np.shape(images)[0]))
+        sq_row = 2
+        total_image = []
+        total_label = []
+        for row in range(sq_row):
+            row_img = [images[id + row * sq_row] for id in range(sq_row)]
+            row_lab = [labels[id + row * sq_row] for id in range(sq_row)]
+
+            total_image.append(np.concatenate(row_img, axis=1))
+            total_label.append(np.concatenate(row_lab, axis=1))
+
+        show_img = np.concatenate(total_image, axis=0)
+        show_lab = np.concatenate(total_label, axis=0)
+
+        # convert img composed of id to colored img
+        def idtocolor(img):
+            h, w = np.shape(img)[:2]
+            img = np.where(img == 255, 19, img)
+            num_classes = 20
+            index = np.reshape(img, (-1,))
+            one_hot = np.eye(num_classes)[index]
+            img = np.reshape(np.matmul(one_hot, self.label_colors), (h, w, 3))
+            return img.astype(np.uint8)
+
+        show_img_color = idtocolor(show_img)
+        show_lab_color = idtocolor(show_lab)
+
+        if save:
+            filename = os.path.join(self.output_dir, title+'_pred.png')
+            cv2.imwrite(filename, show_img_color)
+            filename = os.path.join(self.output_dir, title+'_label.png')
+            cv2.imwrite(filename, show_lab_color)
+        else:
+            cv2.imshow('Training Image', show_img_color)
+            cv2.imshow('Label Image', show_lab_color)
+            key = cv2.waitKey(0)
+            if key == ord('q'):
+                time.sleep(1.0)
+                exit(0)

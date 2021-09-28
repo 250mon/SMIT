@@ -19,7 +19,7 @@ class NetModel():
         self.net_params.ph_bn_train = tf.placeholder(dtype=tf.bool, name='b_bn_train')
         self.net_params.ph_use_drop = tf.placeholder(dtype=tf.bool, name='b_drop_out')
         # for tensorboard summary creation of loss and accuracy
-        self.ph_summary = tf.placeholder(dtype=tf.float32, name='sum_losses')
+        self.ph_summary = tf.placeholder(dtype=tf.float32, name='summary')
 
         # for debugging
         self.t_probes = None
@@ -37,6 +37,8 @@ class NetModel():
         self.loss_wd = self._apply_weight_decay(self.loss)
         # build optimizer; target op is loss_wd
         self.train_ops = self._create_optimizer(self.loss_wd)
+        # show the predicted labels
+        self.t_pred_labels = tf.argmax(self.t_outputs, axis=3, name='predicted_labels', output_type=tf.int32)
 
         # build session
         self.session = self._create_session()
@@ -57,31 +59,30 @@ class NetModel():
     def _inference(self):
         lowbr = nbr.LowBranch(self.ic_net)
         midbr = nbr.MidBranch(self.ic_net)
-        highbr = nbr.MidBranch(self.ic_net)
+        highbr_pre = nbr.HighBranchPre(self.ic_net)
+        highbr_post = nbr.HighBranchPost(self.ic_net)
         cff1 = nbr.CFFModule(self.ic_net, term_name='cff1')
         cff2 = nbr.CFFModule(self.ic_net, term_name='cff2')
         org_size = self._get_org_hw_size()
 
         t_midbr_conv_out = midbr.build(self._resize_images(self.t_inputs, (org_size*0.5).astype(np.int32)))
+        self.t_probes = t_midbr_conv_out
         t_lowbr_out = lowbr.build(t_midbr_conv_out)
         # t_lowbr_pred 1/16
         t_lowbr_pred, t_midbr_out = cff1.build(t_lowbr_out, t_midbr_conv_out)
         lowbr_loss = self._loss(t_lowbr_pred, self.t_level_labs['lowbr'])
 
-        t_highbr_conv_out = highbr.build(self.t_inputs)
+        t_highbr_conv_out = highbr_pre.build(self.t_inputs)
         # t_midbr_pred 1/8
-        t_midbr_pred, t_highbr_out = cff2.build(t_midbr_out, t_highbr_conv_out)
+        t_midbr_pred, t_highbr_pre_out = cff2.build(t_midbr_out, t_highbr_conv_out)
         midbr_loss = self._loss(t_midbr_pred, self.t_level_labs['midbr'])
 
-        # t_highbr_pred 1/4
-        t_highbr_pred = self._resize_images(t_highbr_out, np.array(t_highbr_out.shape[1:3])*2)
+        # t_highbr_pred is a classified output (1/4 size, 19 channels)
+        # t_outputs is a final output (1 size, 19 channels)
+        t_highbr_pred, t_outputs = highbr_post.build(t_highbr_pre_out)
         highbr_loss = self._loss(t_highbr_pred, self.t_level_labs['highbr'])
 
-        # t_main_out 1
-        t_main_out = self._resize_images(t_highbr_pred, np.array(t_highbr_out.shape[1:3])*4)
-
         loss = 0.4 * lowbr_loss + 0.4 * midbr_loss + highbr_loss
-        t_outputs = {'highbr': t_highbr_pred, 'main': t_main_out}
         return loss, t_outputs
 
     # image and label size (h x w) are the same
@@ -116,7 +117,8 @@ class NetModel():
 
     # t_gt: ground truth, t_pred: prediction
     def _loss(self, t_pred, t_gt):
-        t_gt_serial = tf.reshape(t_gt, (-1,)) # serialize
+        # serialize t_gt
+        t_gt_serial = tf.reshape(t_gt, (-1,))
         mask = tf.less_equal(t_gt_serial, self.net_params.class_num - 1)
         indices = tf.squeeze(tf.where(mask), 1)
 
@@ -158,5 +160,5 @@ class NetModel():
 
     def _create_summary(self):
         loss = tf.summary.scalar("Loss", self.ph_summary[0])
-        loss_wd = tf.summary.scalar("Accuracy", self.ph_summary[1])
+        loss_wd = tf.summary.scalar("Loss_Wd", self.ph_summary[1])
         return tf.summary.merge((loss, loss_wd))

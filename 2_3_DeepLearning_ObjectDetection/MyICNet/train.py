@@ -17,8 +17,13 @@ import argparse, utils, time
 def get_arguments():
     
     parser = argparse.ArgumentParser('Implementation for MNIST handwritten digits 2020')
-    
-        
+
+    parser.add_argument('--batch_size',
+                        type=int,
+                        default=16,
+                        help='The batch size',
+                        required = False)
+
     parser.add_argument('--ckpt_dir', 
                         type=str, 
                         default='./ckpt',
@@ -43,14 +48,15 @@ def get_arguments():
 def main():
     
     args = get_arguments()
-    cfg = utils.Config(args)
+    # cfg = utils.Config(args)
     
     print("---------------------------------------------------------")
     print("         Starting Cityscapes-Data Batch Processing Example")
     print("---------------------------------------------------------")
     
-    cityscapes = utils.CityscapesReader(cfg)
-            
+    # cityscapes = utils.CityscapesReader(cfg)
+    cityscapes = utils.CityscapesReader(args)
+
     while 1:
         # batch_image, batch_label = cityscapes.next_batch()
         batch_image, batch_label = cityscapes.next_batch()
