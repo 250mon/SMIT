@@ -39,7 +39,7 @@ class LowBranch(nls.Layer):
     def build(self, tinputs):
         convbnact_layer = nls.ConvBnActLayer(self.net_params, term_name=self.term_name)
         res_blk_layer = nls.ResBlockLayer(self.net_params, term_name=self.term_name, type='LONG')
-        pyramidpool_layer = nls.PyramidPoolLayer(self.net_params, term_name=self.term_name)
+        pyramidpool_layer = nls.PyramidPoolLayer2(self.net_params, term_name=self.term_name)
         addon_layer = nls.AddOnLayer(self.net_params, term_name=self.term_name)
 
         self.push_to_terminal(tinputs)

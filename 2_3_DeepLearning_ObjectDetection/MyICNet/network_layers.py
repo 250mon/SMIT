@@ -266,6 +266,25 @@ class AvgPoolLayer(Layer):
             self.push_to_terminal(x)
             return x
 
+    # if pool_size is given by an array of 2xn (H and W) like [[3, 4, 3], [2, 3, 2]]
+    def op2(self, lpool_size, sname='avgpool_list'):
+        with tf.variable_scope(sname, reuse=tf.AUTO_REUSE):
+            tinputs = self.retrieve_from_terminal()
+            h_split_num = lpool_size[0]
+            w_split_num = lpool_size[1]
+            # horizontal splits [[6,3,22,32], [6,4,22,32],...]
+            h_splits = tf.split(tinputs, h_split_num, axis=1)
+            w_reduced_merged_list = []
+            for h_split in h_splits:
+                # vertical splits [[6,3,2,32], [6,3,3,32],...]
+                hw_splits = tf.split(h_split, w_split_num, axis=2)
+                # N x 1 x w_split_dim x C
+                w_reduced_merged_list.append(tf.concat([tf.reduce_mean(part, axis=(1,2), keepdims=True) for part in hw_splits], axis=2))
+            # N x h_split_dim x w_split_dim x C
+            hw_reduced_merged = tf.concat(w_reduced_merged_list, axis=1)
+
+            self.push_to_terminal(hw_reduced_merged)
+            return hw_reduced_merged
 
 class PyramidPoolLayer(Layer):
     def __init__(self, net_params, term_name='main'):
@@ -281,15 +300,17 @@ class PyramidPoolLayer(Layer):
 
             tensor_size = np.array(tinputs.shape[1:3])
             lpooled_out_size = np.array([1, 2, 3, 6])
+            # [[h, w], [h/2, w/2], ...]
             lpool_hw_sizes = np.outer(np.reciprocal(lpooled_out_size.astype(float)), tensor_size.astype(float)).astype(np.int32)
 
             lpool_sizes = []
             for pool_hw in lpool_hw_sizes:
+                # [[1, h, w, 1], [1, h/2, w/2, 1], ...]
                 lpool_sizes.append(list(np.hstack((np.array([1]), pool_hw, np.array([1])))))
 
             ltensors = []
             for lpool_size in lpool_sizes:
-                # avg pooling; AvgPoolLayer is implemented for ipool_size, not for lpool_size 
+                # avg pooling; AvgPoolLayer is implemented for ipool_size, not for lpool_size
                 tpooled = tf.nn.avg_pool2d(tinputs, lpool_size, lpool_size, spadding, name=sname+'_avgpool')
                 self.push_to_terminal(tpooled)
                 # reduction of the channels by a quarter
@@ -298,6 +319,59 @@ class PyramidPoolLayer(Layer):
                 tpooled_out = self.addon_layer.resize_images(tsize=tensor_size, sname=sname+'_resize')
                 ltensors.append(tpooled_out)
 
+            tpooled_concat = tf.concat(ltensors, axis=3)
+            x = tf.math.add(tinputs, tpooled_concat)
+            self.push_to_terminal(x)
+            return x
+
+
+# If HxW size is not the multiples of 6, PyramidPoolLayer does not work properly
+# because the division of the image into 6 segments results in a avg pooling of unbalanced segments
+# So, take it into account that the case of HxW not being the multiples of 6
+class PyramidPoolLayer2(Layer):
+    def __init__(self, net_params, term_name='main'):
+        super().__init__(term_name)
+        self.net_params = net_params
+        self.avgpool_layer = AvgPoolLayer(self.net_params, term_name=term_name)
+        self.conv_layer = ConvLayer(self.net_params, term_name=term_name)
+        self.addon_layer = AddOnLayer(self.net_params, term_name=term_name)
+
+    def op(self, spadding='VALID', sname='pyramidpool'):
+        with tf.variable_scope(sname, reuse=tf.AUTO_REUSE):
+            tinputs = self.retrieve_from_terminal()
+            # H x W
+            tensor_size = np.array(tinputs.shape[1:3])
+            factors = [1, 2, 3, 6]
+            # split the H or W size into n segments
+            # if size=11, n=3, it will return a list of [3, 4, 4]
+            def split_size_even_by_n(size, n):
+                f_quo = size / n
+                i_quo = size // n
+                # add the first part
+                splits = [i_quo]
+                acc = splits[0]
+                for i in range(2, n + 1):
+                    splits.append(int(f_quo * i) - acc)
+                    acc += splits[-1]
+                return splits
+            # [[[760],[760]], [[380,380],[380,380]], ... ]
+            lpool_sizes = []
+            for factor in factors:
+                lpool_sizes.append([split_size_even_by_n(dim_size, factor) for dim_size in tensor_size])
+
+            # to collect the pyramid pooled tensors
+            ltensors = []
+            for lpool_size in lpool_sizes:
+                # avg pooling; AvgPoolLayer's 2nd op method
+                tpooled = self.avgpool_layer.op2(lpool_size=lpool_size, sname=sname+'_avgpool')
+                self.push_to_terminal(tpooled)
+                # reduction of the channels by a quarter
+                self.conv_layer.op(lfilter_shape=(1, 1, tinputs.shape[3], tinputs.shape[3] // 4), sname='11_'+sname+'_conv')
+                # upsampling back to the original hxw
+                tpooled_out = self.addon_layer.resize_images(tsize=tensor_size, sname=sname+'_resize')
+                ltensors.append(tpooled_out)
+                # for repeated avg_pooling, tinputs are fed as the input
+                self.push_to_terminal(tinputs)
             tpooled_concat = tf.concat(ltensors, axis=3)
             x = tf.math.add(tinputs, tpooled_concat)
             self.push_to_terminal(x)

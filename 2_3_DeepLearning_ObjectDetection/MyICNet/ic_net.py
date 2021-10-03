@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 import numpy as np
 import tensorflow.compat.v1 as tf
+import tensorflow.bitwise as tw
 
 from settings import Settings
 from network_params import NetParams
@@ -105,41 +106,53 @@ class ICNet:
 
             # if it is the last step of the epoch, then show images
             if step == num_of_batches - 1:
-                self.validate_imgs(pred_labels, batch_labels, f'e{epoch:05d}')
+                miou = self._calc_iou(pred_labels, batch_labels)
+                self._validate_imgs(batch_images, pred_labels, batch_labels, f'e{epoch:05d}')
         # calculate mean of losses of minibatch
         mean_cost /= float(num_of_batches)
         mean_cost_wd /= float(num_of_batches)
-        return mean_cost, mean_cost_wd
+        return mean_cost, mean_cost_wd, miou
 
-    # show or/and save the label/output images of training
-    def validate_imgs(self, pred_labels, labels, title):
-        self.dataset.show_cityscapes_ids(pred_labels, labels, title, save=True)
+    # shows or/and save the label/output images of training
+    def _validate_imgs(self, imgs, pred_labels, labels, title):
+        self.dataset.show_cityscapes_ids(imgs, pred_labels, labels, title, save=False)
 
-    def evaluate(self, save_output=False):
-        pass
-        # eval_num = self.dataset.get_eval_number()
-        # total_ssim = 0.
-        # total_psnr = 0.
-        # for step in range(eval_num):
-        #     eval_images, eval_labels = self.dataset.next_eval_batch()
-        #     feed_dict = {
-        #         self.network.t_batch_img: eval_images,
-        #         self.network.t_batch_lab: eval_labels,
-        #     }
-        #     # session run
-        #     ssim, psnr, outputs = self.network.session.run(
-        #         (self.network.t_loss_ops['eval_ssim'],
-        #          self.network.t_loss_ops['eval_psnr'],
-        #          self.network.t_outputs['lv1']),
-        #         feed_dict=feed_dict)
-        #     total_ssim += ssim
-        #     total_psnr += psnr
-        #     if save_output is True:
-        #         self.validate_imgs(outputs, eval_labels, f'lv1_img{step:02d}')
-        #
-        # total_ssim /= eval_num
-        # total_psnr /= eval_num
-        # return total_ssim, total_psnr
+    # makes 2d confusion matrix
+    def _make_confusion_matrix(self, preds, gts):
+        # pred 10, gt 9 => 0x090a (gt, pred) pair
+        merged_maps = tw.bitwise_or(tw.left_shift(gts, 8), preds)
+        # hist indices: 0x0000 ~ 0x1212 (gt:18, pred:18, 4626)
+        # hist: 1 dim
+        hist = tf.bincount(merged_maps)
+        # nonzero bin indices
+        # nonzero_indices: 2 dim
+        nonzero_indices = tf.where(tf.not_equal(hist, 0))
+        # nonzero_values: 2 dim -> 1 dim
+        nonzero_values_2d = tf.gather(hist, nonzero_indices)
+        nonzero_values_1d = tf.squeeze(nonzero_values_2d)
+        # indices(1d or 2d), output_shape(1d), values(1d)
+        conf_matrix_1d = tf.sparse_to_dense(nonzero_indices,
+                                         ((256 * 256),),
+                                         nonzero_values_1d,
+                                         0)
+        conf_matrix_2d = conf_matrix_1d.reshape((256, 256))
+        return conf_matrix_2d
+
+    # calculate IoU
+    def _calc_iou(self, preds, gts):
+        conf_matrix = self._make_confusion_matrix(preds, gts)
+        # sum elements for each row
+        row_sum = tf.squeeze(tf.reduce_sum(conf_matrix, axis=1))
+        # sum elements for each col
+        col_sum = tf.squeeze(tf.reduce_sum(conf_matrix, axis=0))
+        # number of classes appeared in current gt label
+        gt_class_num = tf.cast(tf.count_nonzero(row_sum), dtype=tf.float32)
+        # diagonal elements (the number of True Positive for all classes)
+        diag = tf.squeeze(tf.diag_part(conf_matrix))
+        union = row_sum + col_sum - diag
+        # sum all IoUs and divide the number of classes
+        mIoU = tf.truediv(tf.reduce_sum(tf.truediv(diag, union)), gt_class_num)
+        return mIoU
 
     def run(self):
         print("---------------------------------------------------------")
@@ -162,20 +175,13 @@ class ICNet:
             if epoch == end_epoch - 1:
                 self.is_last_epoch = True
             ###########################################
-            # Train
+            # Train & Evaluation
             ###########################################
-            mean_cost, mean_cost_wd = self.train(epoch)
-            self.logger_train.info(f"{epoch:4d},\t{mean_cost:.4f},\t{mean_cost_wd:.4f}")
+            mean_cost, mean_cost_wd, miou = self.train(epoch)
+            self.logger_train.info(f"{epoch:4d},\t{mean_cost:.4f},\t{mean_cost_wd:.4f},\tMean_IoU: {miou:.4f}")
 
-        # close the child process that makes train batches
         self.dataset.close()
 
-        #################################################################
-        # Evaluation
-        #################################################################
-        # print('Evaluation being processed ...')
-        # accuracy = self.evaluate()
-        # self.logger_eval.info(f"Accuracy: {accuracy:.4f}")
 
         ###############################################################
         # Summary and Ceckpoint
