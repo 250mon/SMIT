@@ -1,7 +1,7 @@
 import tensorflow.compat.v1 as tf
+import tensorflow.bitwise as tw
 import numpy as np
 import network_branches as nbr
-import pdb
 
 
 class NetModel():
@@ -39,6 +39,9 @@ class NetModel():
         self.train_ops = self._create_optimizer(self.loss_wd)
         # show the predicted labels
         self.t_pred_labels = tf.expand_dims(tf.argmax(self.t_outputs, axis=3, name='predicted_labels', output_type=tf.int32), -1)
+        # calc miou
+        self.t_gt_labels_32 = tf.cast(self.t_batch_lab, tf.int32)
+        self.miou = self._calc_iou(self.t_pred_labels, self.t_gt_labels_32)
 
         # build session
         self.session = self._create_session()
@@ -162,3 +165,49 @@ class NetModel():
         loss = tf.summary.scalar("Loss", self.ph_summary[0])
         loss_wd = tf.summary.scalar("Loss_Wd", self.ph_summary[1])
         return tf.summary.merge((loss, loss_wd))
+
+    # makes 2d confusion matrix
+    def _make_confusion_matrix(self, preds, gts):
+        # pred 10, gt 9 => 0x090a (gt, pred) pair
+        merged_maps = tw.bitwise_or(tw.left_shift(gts, 8), preds)
+        # hist indices: 0x0000 ~ 0x1212 (gt:18, pred:18, 4626)
+        # hist: 1 dim
+        hist = tf.bincount(merged_maps)
+        # nonzero bin indices
+        # nonzero_indices: 2 dim
+        nonzero_indices = tf.where(tf.not_equal(hist, 0))
+        # nonzero_values: 2 dim -> 1 dim
+        nonzero_values_2d = tf.gather(hist, nonzero_indices)
+        nonzero_values_1d = tf.squeeze(nonzero_values_2d)
+        # indices(1d or 2d), output_shape(1d), values(1d)
+        conf_matrix_1d = tf.sparse_to_dense(nonzero_indices,
+                                            ((256 * 256),),
+                                            nonzero_values_1d,
+                                            0)
+        conf_matrix_2d = tf.reshape(conf_matrix_1d, (256, 256))
+        return conf_matrix_2d
+
+    # calculate Mean IoU
+    def _calc_iou(self, preds, gts):
+        conf_matrix = self._make_confusion_matrix(preds, gts)
+        # sum elements for each row
+        row_sum = tf.squeeze(tf.reduce_sum(conf_matrix, axis=1))
+        # sum elements for each col
+        col_sum = tf.squeeze(tf.reduce_sum(conf_matrix, axis=0))
+        # number of classes appeared in current gt label
+        # gt_class_num = tf.cast(tf.count_nonzero(row_sum), dtype=tf.float64)
+        # diagonal elements (the number of True Positive for all classes)
+        diag = tf.squeeze(tf.diag_part(conf_matrix))
+        union = row_sum + col_sum - diag
+        # only nonzeros of union
+        nonzero_indices = tf.where(tf.not_equal(union, 0))
+        union_nonzero_values_2d = tf.gather(union, nonzero_indices)
+        union_nonzero_values_1d = tf.squeeze(union_nonzero_values_2d)
+        diag_nonzero_values_2d = tf.gather(diag, nonzero_indices)
+        diag_nonzero_values_1d = tf.squeeze(diag_nonzero_values_2d)
+        union_nonzero_size = tf.cast(tf.size(union_nonzero_values_1d, out_type=tf.int32), dtype=tf.float64)
+        # sum all IoUs and divide the number of classes
+        mIoU = tf.truediv(tf.reduce_sum(tf.truediv(diag_nonzero_values_1d, union_nonzero_values_1d)), union_nonzero_size)
+        # mIoU = tf.truediv(tf.reduce_sum(tf.truediv(diag_nonzero_values_1d, union_nonzero_values_1d)), gt_class_num)
+        return mIoU
+
