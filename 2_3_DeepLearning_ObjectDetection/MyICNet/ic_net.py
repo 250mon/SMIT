@@ -82,6 +82,7 @@ class ICNet:
         num_of_batches = self.dataset.num_of_batches
         mean_cost = 0.
         mean_cost_wd = 0.
+        miou = 0.
 
         for step in range(num_of_batches):
             # if step % 100 == 0:
@@ -106,7 +107,8 @@ class ICNet:
 
             # if it is the last step of the epoch, then show images
             if step == num_of_batches - 1:
-                miou = self._calc_iou(pred_labels, batch_labels)
+                batch_labels_32 = batch_labels.astype(np.int32)
+                miou = self._calc_iou(pred_labels, batch_labels_32)
                 self._validate_imgs(batch_images, pred_labels, batch_labels, f'e{epoch:05d}')
         # calculate mean of losses of minibatch
         mean_cost /= float(num_of_batches)
@@ -115,7 +117,7 @@ class ICNet:
 
     # shows or/and save the label/output images of training
     def _validate_imgs(self, imgs, pred_labels, labels, title):
-        self.dataset.show_cityscapes_ids(imgs, pred_labels, labels, title, save=False)
+        self.dataset.show_cityscapes_ids(imgs, pred_labels, labels, title, save=True)
 
     # makes 2d confusion matrix
     def _make_confusion_matrix(self, preds, gts):
@@ -135,7 +137,7 @@ class ICNet:
                                          ((256 * 256),),
                                          nonzero_values_1d,
                                          0)
-        conf_matrix_2d = conf_matrix_1d.reshape((256, 256))
+        conf_matrix_2d = tf.reshape(conf_matrix_1d, (256, 256))
         return conf_matrix_2d
 
     # calculate IoU
@@ -146,7 +148,7 @@ class ICNet:
         # sum elements for each col
         col_sum = tf.squeeze(tf.reduce_sum(conf_matrix, axis=0))
         # number of classes appeared in current gt label
-        gt_class_num = tf.cast(tf.count_nonzero(row_sum), dtype=tf.float32)
+        gt_class_num = tf.cast(tf.count_nonzero(row_sum), dtype=tf.float64)
         # diagonal elements (the number of True Positive for all classes)
         diag = tf.squeeze(tf.diag_part(conf_matrix))
         union = row_sum + col_sum - diag

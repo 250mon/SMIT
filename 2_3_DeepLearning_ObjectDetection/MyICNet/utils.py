@@ -25,10 +25,10 @@ class CityscapesReader(object):
         # 18 = bicycle
 
         # self.dataset_root = '/mnt/e/Datasets'
-        # self.dataset_root = 'C:\\Users\\idiot\\sjy\\Datasets'
-        self.dataset_root = '/home/ynjn/sdb/Datasets'
-        # self.dataset_dir = 'cityscape-dist'
-        self.dataset_dir = 'cityscape_subset'
+        self.dataset_root = 'C:\\Users\\idiot\\sjy\\Datasets'
+        # self.dataset_root = '/home/ynjn/sdb/Datasets'
+        self.dataset_dir = 'cityscape-dist'
+        # self.dataset_dir = 'cityscape_subset'
         self.cityscape_data = {
             'train_img_path': os.path.join(self.dataset_root, self.dataset_dir, 'leftImg8bit', 'train'),
             'train_label_path': os.path.join(self.dataset_root, self.dataset_dir, 'gtFine', 'train'),
@@ -242,8 +242,8 @@ class CityscapesReader(object):
 
         show_pred_color = idtocolor(total_preds_concat)
         show_gt_color = idtocolor(total_gts_concat)
-        show_preds = np.cast(0.7 * total_imgs_concat + 0.3 * show_pred_color, np.uint8)
-        show_gts = np.cast(0.7 * total_imgs_concat + 0.3 * show_gt_color, np.uint8)
+        show_preds = (0.7 * total_imgs_concat + 0.3 * show_pred_color).astype(np.uint8)
+        show_gts = (0.7 * total_imgs_concat + 0.3 * show_gt_color).astype(np.uint8)
 
         if save:
             filename = os.path.join(self.output_dir, title+'_pred.png')
@@ -252,7 +252,7 @@ class CityscapesReader(object):
             cv2.imwrite(filename, show_gts)
         else:
             cv2.imshow('Training Image', show_preds)
-            cv2.imshow('Label Image', show_gt_color)
+            cv2.imshow('Label Image', show_gts)
             key = cv2.waitKey(0)
             if key == ord('q'):
                 time.sleep(1.0)

@@ -38,7 +38,7 @@ class NetModel():
         # build optimizer; target op is loss_wd
         self.train_ops = self._create_optimizer(self.loss_wd)
         # show the predicted labels
-        self.t_pred_labels = tf.argmax(self.t_outputs, axis=3, name='predicted_labels', output_type=tf.int32)
+        self.t_pred_labels = tf.expand_dims(tf.argmax(self.t_outputs, axis=3, name='predicted_labels', output_type=tf.int32), -1)
 
         # build session
         self.session = self._create_session()

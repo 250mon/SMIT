@@ -5,7 +5,7 @@ import logging
 class Settings:
     def __init__(self):
         _args = self._get_arguments()
-        self.num_epoch = 100
+        self.num_epoch = 900
         self.batch_size = 16
         self.learning_rate = 0.001
         self.ld_epoch = _args.ld_epoch
@@ -17,7 +17,7 @@ class Settings:
         parser = argparse.ArgumentParser('Implementation for PyNet handwritten digits 2021')
         parser.add_argument('--ld_epoch',
                             type=int, 
-                            default=50,
+                            default=300,
                             help='Learning Rate Linear Decay Start Epoch', 
                             required = False)
         parser.add_argument('--ckpt_dir', 
