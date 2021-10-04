@@ -25,7 +25,7 @@ class CityscapesReader(object):
         # 18 = bicycle
 
         # self.dataset_root = '/mnt/e/Datasets'
-        self.dataset_root = 'C:\\Users\\idiot\\sjy\\Datasets'
+        self.dataset_root = 'D:\\sjy\\Datasets'
         # self.dataset_root = '/home/ynjn/sdb/Datasets'
         self.dataset_dir = 'cityscape-dist'
         # self.dataset_dir = 'cityscape_subset'
