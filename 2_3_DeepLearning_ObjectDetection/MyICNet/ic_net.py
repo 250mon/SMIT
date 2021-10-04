@@ -111,6 +111,23 @@ class ICNet:
         mean_miou /= float(num_of_batches)
         return mean_cost, mean_cost_wd, mean_miou
 
+    def evaluate(self, epoch, save_output=False):
+        eval_images, eval_labels = self.dataset.next_eval_batch()
+        p_feed_dict = self._partial_feed_dict(epoch, proc='eval')
+        feed_dict = {
+            self.network.t_batch_img: eval_images,
+            self.network.t_batch_lab: eval_labels,
+            **p_feed_dict,
+        }
+        # session run
+        miou, pred_labels = self.network.session.run(
+            (self.network.miou, self.network.t_pred_labels),
+            feed_dict=feed_dict)
+
+        if save_output is True:
+            self._validate_imgs(eval_images, pred_labels, eval_labels, f'e{epoch:05d}')
+        return miou
+
     # shows or/and save the label/output images of training
     def _validate_imgs(self, imgs, pred_labels, labels, title):
         self.dataset.show_cityscapes_ids(imgs, pred_labels, labels, title, save=True)
@@ -126,8 +143,7 @@ class ICNet:
         self.logger_eval = self.loggers.create_logger('icnet_eval')
 
         # ckpt_epoch becomes the cum start epoch
-        # ckpt_epoch = self.ckpt_handler.restore_ckpt()
-        ckpt_epoch = 0
+        ckpt_epoch = self.ckpt_handler.restore_ckpt()
         start_epoch = ckpt_epoch
         end_epoch = self.settings.num_epoch
         print(f'start epoch: {start_epoch}')
@@ -136,24 +152,33 @@ class ICNet:
             if epoch == end_epoch - 1:
                 self.is_last_epoch = True
             ###########################################
-            # Train & Evaluation
+            # Train
             ###########################################
-            mean_cost, mean_cost_wd, miou = self.train(epoch)
-            self.logger_train.info(f"{epoch:4d},\t{mean_cost:.4f},\t{mean_cost_wd:.4f},\t{miou:.4f}")
+            mean_cost, mean_cost_wd, train_miou = self.train(epoch)
+            self.logger_train.info(f"{epoch:4d},\t{mean_cost:.4f},\t{mean_cost_wd:.4f},\t{train_miou:.4f}")
+            ###########################################
+            # Evaluation
+            ###########################################
+            eval_miou = self.evaluate(epoch, save_output=True)
+            self.logger_eval.info(f"{eval_miou:.4f}")
+
+            ###########################################
+            # Summary
+            ###########################################
+            feed_dict = {
+                self.network.ph_summary: (mean_cost, mean_cost_wd, eval_miou)
+            }
+            summaries = self.network.session.run(self.network.summaries, feed_dict=feed_dict)
+            self.network.summary_writer.add_summary(summaries, epoch)
+
+            ###########################################
+            #  Checkpoint
+            ###########################################
+            if epoch % 50 == 0:
+                self.ckpt_handler.save_ckpt(epoch)
 
         self.dataset.close()
 
-
-        ###############################################################
-        # Summary and Ceckpoint
-        # ################################################################
-        feed_dict = {
-            self.network.ph_summary:
-            # (mean_cost_wd, mean_cost, total_accuracy)
-            (mean_cost, mean_cost_wd)
-        }
-        summaries = self.network.session.run(self.network.summaries, feed_dict=feed_dict)
-        self.network.summary_writer.add_summary(summaries, epoch)
 
 
 if __name__ == '__main__':

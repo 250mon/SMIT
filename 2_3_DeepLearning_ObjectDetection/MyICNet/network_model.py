@@ -164,7 +164,8 @@ class NetModel():
     def _create_summary(self):
         loss = tf.summary.scalar("Loss", self.ph_summary[0])
         loss_wd = tf.summary.scalar("Loss_Wd", self.ph_summary[1])
-        return tf.summary.merge((loss, loss_wd))
+        miou = tf.summary.scalar("Loss_Wd", self.ph_summary[2])
+        return tf.summary.merge((loss, loss_wd, miou))
 
     # makes 2d confusion matrix
     def _make_confusion_matrix(self, preds, gts):

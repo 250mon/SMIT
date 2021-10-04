@@ -25,13 +25,15 @@ class CityscapesReader(object):
         # 18 = bicycle
 
         # self.dataset_root = '/mnt/e/Datasets'
-        self.dataset_root = 'D:\\sjy\\Datasets'
-        # self.dataset_root = '/home/ynjn/sdb/Datasets'
-        self.dataset_dir = 'cityscape-dist'
-        # self.dataset_dir = 'cityscape_subset'
+        # self.dataset_root = 'D:\\sjy\\Datasets'
+        self.dataset_root = '/home/ynjn/sdb/Datasets'
+        # self.dataset_dir = 'cityscape-dist'
+        self.dataset_dir = 'cityscape_subset'
         self.cityscape_data = {
             'train_img_path': os.path.join(self.dataset_root, self.dataset_dir, 'leftImg8bit', 'train'),
             'train_label_path': os.path.join(self.dataset_root, self.dataset_dir, 'gtFine', 'train'),
+            'test_img_path': os.path.join(self.dataset_root, self.dataset_dir, 'leftImg8bit', 'test'),
+            'test_label_path': os.path.join(self.dataset_root, self.dataset_dir, 'gtFine', 'test'),
             'class_num': 19,
             'label_color': self.label_color
         }
@@ -39,7 +41,6 @@ class CityscapesReader(object):
         self.batch_size = settings.batch_size
         self.output_dir = settings.res_dir
         os.makedirs(self.output_dir, exist_ok=True)
-        self.num_of_batches = 2975 // self.batch_size
         self.augmentation = True
         self.resize_low = 0.5
         self.resize_high = 2.0
@@ -50,26 +51,30 @@ class CityscapesReader(object):
         self.buffer_size = 64
         self.lock = Lock()
         self.end_flag = Manager().list([False])
-        
-        self.img_list = self._get_list()
-        
-        self.img_list_size = len(self.img_list)
-        self.img_list_pos = 0
-                                        
+
+        # train image list handling
+        self.img_list = {
+            'train': self._get_list('train'),
+            'test': self._get_list('test')
+        }
+        self.num_of_batches = len(self.img_list['train']) // self.batch_size
+        self.num_of_eval_batches = len(self.img_list['test']) // self.batch_size
+        self.img_list_pos = {'train': 0, 'test': 0}
+
         self.p = Process(target=self._start_buffer)
         self.p.daemon=True
         self.p.start()
         time.sleep(0.5)
     
     
-    def _get_list(self):
-        train_cities = glob.glob(os.path.join(self.cityscape_data['train_img_path'], '*'))
-        label_cities = glob.glob(os.path.join(self.cityscape_data['train_label_path'], '*'))
-        train_cities.sort()
+    def _get_list(self, type):
+        image_cities = glob.glob(os.path.join(self.cityscape_data[type + '_img_path'], '*'))
+        label_cities = glob.glob(os.path.join(self.cityscape_data[type + '_label_path'], '*'))
+        image_cities.sort()
         label_cities.sort()
         
         img_list = []
-        for idc, city in enumerate(train_cities):
+        for idc, city in enumerate(image_cities):
             pngs = glob.glob(os.path.join(city, '*.png'))
             for idf, file in enumerate(pngs):
                 fname = os.path.basename(file).split('_')
@@ -89,7 +94,7 @@ class CityscapesReader(object):
         while(1):
             if self.end_flag[0]:
                 break
-            _batch = self._get_batch()
+            _batch = self._get_batch(type='train')
             while(1):
                 if len(self.buffer) < self.buffer_size:
                     break
@@ -101,24 +106,25 @@ class CityscapesReader(object):
             self.buffer.append(_batch)
             self.lock.release()
             #print('Stuffed - Buffer Size  {:d}'.format(len(self.buffer)))
-            
-    def _get_batch(self):
-        if self.img_list_pos + self.batch_size > self.img_list_size-1:
-            self.img_list_pos = 0
-            random.shuffle(self.img_list)
-        tr_cache = []
+
+    # get train or test batch
+    def _get_batch(self, type='train'):
+        if self.img_list_pos[type]+self.batch_size > len(self.img_list[type])-1:
+            self.img_list_pos[type] = 0
+            random.shuffle(self.img_list[type])
+        img_cache = []
         lab_cache = []
         for index in range(self.batch_size):
-            tr, lab = self._read_image(self.img_list[self.img_list_pos], augment=self.augmentation)
+            img, lab = self._read_image(self.img_list[type][self.img_list_pos[type]], augment=self.augmentation)
             
-            tr_cache.append(tr)
+            img_cache.append(img)
             lab_cache.append(lab)
             
-            self.img_list_pos += 1
+            self.img_list_pos[type] += 1
                 
-        tr_batch = np.stack(tr_cache, axis=0)
+        img_batch = np.stack(img_cache, axis=0)
         lab_batch = np.stack(lab_cache, axis=0)
-        return tr_batch, lab_batch
+        return img_batch, lab_batch
     
     def _read_image(self, path, augment=True):
         img_sample = cv2.imread(path[0], cv2.IMREAD_UNCHANGED)
@@ -169,6 +175,9 @@ class CityscapesReader(object):
                 #print('Retrieved - Buffer Size  {:d}'.format(len(bbuffer)))
                 break
         return item
+
+    def next_eval_batch(self):
+        return self._get_batch(type='test')
     
     def close(self):
         self.end_flag[0] = True
