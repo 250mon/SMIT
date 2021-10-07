@@ -298,18 +298,14 @@ class PyramidPoolLayer(Layer):
         with tf.variable_scope(sname, reuse=tf.AUTO_REUSE):
             tinputs = self.retrieve_from_terminal()
 
-            tensor_size = np.array(tinputs.shape[1:3])
-            lpooled_out_size = np.array([1, 2, 3, 6])
+            # [h, w]
+            tensor_size = tf.shape(tinputs)[1:3]
+            pooled_out_size = tf.constant([1.0, 1/2, 1/3, 1/6])
             # [[h, w], [h/2, w/2], ...]
-            lpool_hw_sizes = np.outer(np.reciprocal(lpooled_out_size.astype(float)), tensor_size.astype(float)).astype(np.int32)
-
-            lpool_sizes = []
-            for pool_hw in lpool_hw_sizes:
-                # [[1, h, w, 1], [1, h/2, w/2, 1], ...]
-                lpool_sizes.append(list(np.hstack((np.array([1]), pool_hw, np.array([1])))))
+            pool_hw_sizes = tf.cast(tf.tensordot(pooled_out_size, tf.cast(tensor_size, tf.float32), axes=0), tf.int32)
 
             ltensors = []
-            for lpool_size in lpool_sizes:
+            for lpool_size in pool_hw_sizes:
                 # avg pooling; AvgPoolLayer is implemented for ipool_size, not for lpool_size
                 tpooled = tf.nn.avg_pool2d(tinputs, lpool_size, lpool_size, spadding, name=sname+'_avgpool')
                 self.push_to_terminal(tpooled)
@@ -340,7 +336,7 @@ class PyramidPoolLayer2(Layer):
         with tf.variable_scope(sname, reuse=tf.AUTO_REUSE):
             tinputs = self.retrieve_from_terminal()
             # H x W
-            tensor_size = np.array(tinputs.shape[1:3])
+            tensor_size = tf.shape(tinputs)[1:3]
             factors = [1, 2, 3, 6]
             # split the H or W size into n segments
             # if size=11, n=3, it will return a list of [3, 4, 4]
@@ -730,7 +726,7 @@ class ConvBlockLayer(Layer):
 
 
 if __name__ == '__main__':
-    input_tensor = np.array(np.eye(12, dtype=int)) # hxw
+    input_tensor = tf.constant(np.eye(12, dtype=int)) # hxw
     input_tensor = input_tensor[np.newaxis, :, :, np.newaxis] # nxhxwxc
 
     # test resize_images
