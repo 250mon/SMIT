@@ -347,13 +347,14 @@ class PyramidPoolLayer2(Layer):
                 splits = [i_quo]
                 acc = splits[0]
                 for i in range(2, n + 1):
-                    splits.append(int(f_quo * i) - acc)
+                    splits.append(tf.cast(f_quo * i, tf.int32) - acc)
                     acc += splits[-1]
                 return splits
             # [[[760],[760]], [[380,380],[380,380]], ... ]
             lpool_sizes = []
             for factor in factors:
-                lpool_sizes.append([split_size_even_by_n(dim_size, factor) for dim_size in tensor_size])
+                lpool_sizes.append([split_size_even_by_n(tensor_size[0], factor),
+                                    split_size_even_by_n(tensor_size[1], factor)])
 
             # to collect the pyramid pooled tensors
             ltensors = []
