@@ -103,8 +103,8 @@ class ICNet:
             mean_miou += miou
 
             # if it is the last step of the epoch, then show images
-            if step == num_of_batches - 1:
-                self._validate_imgs(batch_images, pred_labels, batch_labels, f'e{epoch:05d}')
+            # if step == num_of_batches - 1:
+            #     self._validate_imgs(batch_images, pred_labels, batch_labels, f'e{epoch:05d}')
         # calculate mean of losses of minibatch
         mean_cost /= float(num_of_batches)
         mean_cost_wd /= float(num_of_batches)
@@ -120,13 +120,13 @@ class ICNet:
             **p_feed_dict,
         }
         # session run
-        miou, pred_labels = self.network.session.run(
-            (self.network.miou, self.network.t_pred_labels),
+        miou, class_ious, pred_labels = self.network.session.run(
+            (self.network.miou, self.network.t_class_ious, self.network.t_pred_labels),
             feed_dict=feed_dict)
 
         if save_output is True:
             self._validate_imgs(eval_images, pred_labels, eval_labels, f'e{epoch:05d}')
-        return miou
+        return miou, class_ious
 
     # shows or/and save the label/output images of training
     def _validate_imgs(self, imgs, pred_labels, labels, title):
@@ -159,8 +159,9 @@ class ICNet:
             ###########################################
             # Evaluation
             ###########################################
-            eval_miou = self.evaluate(epoch, save_output=True)
+            eval_miou, class_ious = self.evaluate(epoch, save_output=True)
             self.logger_eval.info(f"{eval_miou:.4f}")
+            self.logger_eval.info(class_ious)
 
             ###########################################
             # Summary

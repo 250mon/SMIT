@@ -112,10 +112,17 @@ class CityscapesReader(object):
         if self.img_list_pos[type]+self.batch_size > len(self.img_list[type])-1:
             self.img_list_pos[type] = 0
             random.shuffle(self.img_list[type])
+
+        # whether or not use augmentation
+        if type == 'train':
+            use_augment = self.augmentation
+        else: # test
+            use_augment = False
+
         img_cache = []
         lab_cache = []
         for index in range(self.batch_size):
-            img, lab = self._read_image(self.img_list[type][self.img_list_pos[type]], augment=self.augmentation)
+            img, lab = self._read_image(self.img_list[type][self.img_list_pos[type]], augment=use_augment)
             
             img_cache.append(img)
             lab_cache.append(lab)
@@ -137,7 +144,7 @@ class CityscapesReader(object):
                 img_sample = np.fliplr(img_sample)
                 lab_sample = np.fliplr(lab_sample)
             
-            resize_low = np.maximum(np.max(np.array(self.TRAIN_SIZE)/np.shape(img_sample)[:2]), self.resize_low)
+            resize_low = np.maximum(np.max(tr_size/np.shape(img_sample)[:2]), self.resize_low)
             #print('RESIZE LOW is - ', resize_low)
             ratio = np.random.uniform(low=resize_low, high=self.resize_high)
             new_size = np.flip(np.maximum(np.round(np.shape(img_sample)[:2] * np.array(ratio, dtype=np.float32)), tr_size)).astype(np.int32)

@@ -41,7 +41,7 @@ class NetModel():
         self.t_pred_labels = tf.expand_dims(tf.argmax(self.t_outputs, axis=3, name='predicted_labels', output_type=tf.int32), -1)
         # calc miou
         self.t_gt_labels_32 = tf.cast(self.t_batch_lab, tf.int32)
-        self.miou = self._calc_iou(self.t_pred_labels, self.t_gt_labels_32)
+        self.miou, self.t_class_ious = self._calc_iou(self.t_pred_labels, self.t_gt_labels_32)
 
         # build session
         self.session = self._create_session()
@@ -165,12 +165,15 @@ class NetModel():
         loss = tf.summary.scalar("Loss", self.ph_summary[0])
         loss_wd = tf.summary.scalar("Loss_Wd", self.ph_summary[1])
         miou = tf.summary.scalar("Loss_Wd", self.ph_summary[2])
-        return tf.summary.merge((loss, loss_wd, miou))
+        class_ious = tf.summary.scalar("Loss_Wd", self.ph_summary[3])
+        return tf.summary.merge((loss, loss_wd, miou, class_ious))
 
     # makes 2d confusion matrix
     def _make_confusion_matrix(self, preds, gts):
+        # apply a mask to include only 0~18 and exclude 255
+        gts_19 = tw.bitwise_and(0x001F, gts)
         # pred 10, gt 9 => 0x090a (gt, pred) pair
-        merged_maps = tw.bitwise_or(tw.left_shift(gts, 8), preds)
+        merged_maps = tw.bitwise_or(tw.left_shift(gts_19, 8), preds)
         # hist indices: 0x0000 ~ 0x1212 (gt:18, pred:18, 4626)
         # hist: 1 dim
         hist = tf.bincount(merged_maps)
@@ -207,8 +210,10 @@ class NetModel():
         diag_nonzero_values_2d = tf.gather(diag, nonzero_indices)
         diag_nonzero_values_1d = tf.squeeze(diag_nonzero_values_2d)
         union_nonzero_size = tf.cast(tf.size(union_nonzero_values_1d, out_type=tf.int32), dtype=tf.float64)
+        # IoUs of each class
+        class_ious = tf.truediv(diag_nonzero_values_1d, union_nonzero_values_1d)
         # sum all IoUs and divide the number of classes
         mIoU = tf.truediv(tf.reduce_sum(tf.truediv(diag_nonzero_values_1d, union_nonzero_values_1d)), union_nonzero_size)
         # mIoU = tf.truediv(tf.reduce_sum(tf.truediv(diag_nonzero_values_1d, union_nonzero_values_1d)), gt_class_num)
-        return mIoU
+        return mIoU, class_ious
 
