@@ -5,7 +5,7 @@ import logging
 class Settings:
     def __init__(self):
         _args = self._get_arguments()
-        self.num_epoch = 900
+        self.num_epoch = 200
         self.batch_size = 16
         self.learning_rate = 0.001
         self.ld_epoch = _args.ld_epoch

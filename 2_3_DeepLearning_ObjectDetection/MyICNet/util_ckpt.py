@@ -10,7 +10,7 @@ class CheckPtHandler:
         self.saver = tf.train.Saver()
 
     def save_ckpt(self, global_step):
-        save_path = os.path.join(self.settings.ckpt_dir, self.settings.net_type)
+        save_path = os.path.join(self.settings.ckpt_dir)
         self.saver.save(self.session, save_path, global_step)
         print('\n The checkpoint has been created, epoch: {} \n'.format(global_step))
 

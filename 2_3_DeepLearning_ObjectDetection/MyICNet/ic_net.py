@@ -94,8 +94,8 @@ class ICNet:
                 **p_feed_dict,
             }
 
-            _, loss, loss_wd, miou, pred_labels = self.network.session.run(
-                (self.network.train_ops, self.network.loss, self.network.loss_wd, self.network.miou, self.network.t_pred_labels),
+            _, loss, loss_wd, miou, class_ious, pred_labels = self.network.session.run(
+                (self.network.train_ops, self.network.loss, self.network.loss_wd, self.network.miou, self.network.t_class_ious, self.network.t_pred_labels),
                 feed_dict=feed_dict)
 
             mean_cost += loss
@@ -167,7 +167,7 @@ class ICNet:
             # Summary
             ###########################################
             feed_dict = {
-                self.network.ph_summary: (mean_cost, mean_cost_wd, eval_miou)
+                self.network.ph_summary: (mean_cost, mean_cost_wd, eval_miou, *class_ious)
             }
             summaries = self.network.session.run(self.network.summaries, feed_dict=feed_dict)
             self.network.summary_writer.add_summary(summaries, epoch)

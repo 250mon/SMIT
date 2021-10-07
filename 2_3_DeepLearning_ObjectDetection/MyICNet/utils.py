@@ -25,15 +25,15 @@ class CityscapesReader(object):
         # 18 = bicycle
 
         # self.dataset_root = '/mnt/e/Datasets'
-        # self.dataset_root = 'D:\\sjy\\Datasets'
-        self.dataset_root = '/home/ynjn/sdb/Datasets'
-        # self.dataset_dir = 'cityscape-dist'
-        self.dataset_dir = 'cityscape_subset'
+        self.dataset_root = 'D:\\sjy\\Datasets'
+        # self.dataset_root = '/home/ynjn/sdb/Datasets'
+        self.dataset_dir = 'cityscape-dist'
+        # self.dataset_dir = 'cityscape_subset'
         self.cityscape_data = {
             'train_img_path': os.path.join(self.dataset_root, self.dataset_dir, 'leftImg8bit', 'train'),
             'train_label_path': os.path.join(self.dataset_root, self.dataset_dir, 'gtFine', 'train'),
-            'test_img_path': os.path.join(self.dataset_root, self.dataset_dir, 'leftImg8bit', 'test'),
-            'test_label_path': os.path.join(self.dataset_root, self.dataset_dir, 'gtFine', 'test'),
+            'test_img_path': os.path.join(self.dataset_root, self.dataset_dir, 'leftImg8bit', 'val'),
+            'test_label_path': os.path.join(self.dataset_root, self.dataset_dir, 'gtFine', 'val'),
             'class_num': 19,
             'label_color': self.label_color
         }
@@ -161,7 +161,7 @@ class CityscapesReader(object):
             lab_sample = lab_sample[crop_pos[0]:crop_pos[0]+tr_size[0], crop_pos[1]:crop_pos[1]+tr_size[1], :]
             
         else:
-            crop_pos = np.round((np.shape(img_sample) - tr_size)*np.random.uniform()).astype(np.int32)
+            crop_pos = np.round((np.shape(img_sample)[:2] - tr_size)*np.random.uniform()).astype(np.int32)
             
             if len(np.shape(lab_sample)) == 2:
                 lab_sample = np.expand_dims(lab_sample, axis=2)
