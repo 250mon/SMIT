@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 import tensorflow.compat.v1 as tf
-
+import numpy as np
 from settings import Settings
 from network_params import NetParams
 import utils
@@ -83,10 +83,9 @@ class ICNet:
         mean_cost = 0.
         mean_cost_wd = 0.
         mean_miou = 0.
+        mean_class_ious = np.array([0.] * 19)
 
         for step in range(num_of_batches):
-            # if step % 100 == 0:
-            #     print(f"Step {step}/{num_of_batches} running...")
             print(f"Step {step}/{num_of_batches} running...")
 
             batch_images, batch_labels = self.dataset.next_batch()
@@ -98,12 +97,18 @@ class ICNet:
             }
 
             _, loss, loss_wd, miou, class_ious, pred_labels = self.network.session.run(
-                (self.network.train_ops, self.network.loss, self.network.loss_wd, self.network.miou, self.network.t_class_ious, self.network.t_pred_labels),
+                (self.network.train_ops,
+                 self.network.loss,
+                 self.network.loss_wd,
+                 self.network.miou,
+                 self.network.t_class_ious,
+                 self.network.t_pred_labels),
                 feed_dict=feed_dict)
 
             mean_cost += loss
             mean_cost_wd += loss_wd
             mean_miou += miou
+            mean_class_ious += class_ious
 
             # if it is the last step of the epoch, then show images
             # if step == num_of_batches - 1:
@@ -112,9 +117,11 @@ class ICNet:
         mean_cost /= float(num_of_batches)
         mean_cost_wd /= float(num_of_batches)
         mean_miou /= float(num_of_batches)
-        return mean_cost, mean_cost_wd, mean_miou
+        mean_class_ious /= float(num_of_batches)
+        return mean_cost, mean_cost_wd, mean_miou, mean_class_ious
 
-    def evaluate(self, epoch, save_output=False):
+    # can be used when evaluation of only one eval_batch is needed after every training epoch
+    def evaluate_per_epoch(self, epoch, save_output=False):
         eval_images, eval_labels = self.dataset.next_eval_batch()
         p_feed_dict = self._partial_feed_dict(epoch, proc='eval')
         feed_dict = {
@@ -130,6 +137,35 @@ class ICNet:
         if save_output is True:
             self._validate_imgs(eval_images, pred_labels, eval_labels, f'e{epoch:05d}')
         return miou, class_ious
+
+    # can be used when evaluation of all eval_batches is needed after training is done
+    def evaluate_after_training(self, epoch, save_output=False):
+        num_of_eval_batches = self.dataset.num_of_eval_batches
+        p_feed_dict = self._partial_feed_dict(epoch, proc='eval')
+        mean_miou = 0.
+        mean_class_ious = np.array([0.] * 19)
+
+        for step in range(num_of_eval_batches):
+            print(f"Evaluation Step {step}/{num_of_eval_batches} running...")
+            eval_images, eval_labels = self.dataset.next_eval_batch()
+            feed_dict = {
+                self.network.t_batch_img: eval_images,
+                self.network.t_batch_lab: eval_labels,
+                **p_feed_dict,
+            }
+            # session run
+            miou, class_ious, pred_labels = self.network.session.run(
+                (self.network.miou, self.network.t_class_ious, self.network.t_pred_labels),
+                feed_dict=feed_dict)
+            mean_miou += miou
+            mean_class_ious += class_ious
+
+            if save_output is True and step == num_of_eval_batches-1:
+                self._validate_imgs(eval_images, pred_labels, eval_labels, f'e{epoch:05d}')
+
+        mean_miou /= float(num_of_eval_batches)
+        mean_class_ious /= float(num_of_eval_batches)
+        return mean_miou, mean_class_ious
 
     # shows or/and save the label/output images of training
     def _validate_imgs(self, imgs, pred_labels, labels, title):
@@ -157,21 +193,24 @@ class ICNet:
             ###########################################
             # Train
             ###########################################
-            mean_cost, mean_cost_wd, train_miou = self.train(epoch)
-            self.logger_train.info(f"{epoch:4d},\t{mean_cost:.4f},\t{mean_cost_wd:.4f},\t{train_miou:.4f}")
+            mean_cost, mean_cost_wd, tr_miou, tr_class_ious = self.train(epoch)
+            list_tr_class_ious = list(map(lambda n: '%.4f' %n, tr_class_ious))
+            tr_str_class_ious = ','.join(list_tr_class_ious)
+            self.logger_train.info(f"{epoch:4d},\t{mean_cost:.4f},\t{mean_cost_wd:.4f},\t{tr_miou:.4f},{tr_str_class_ious}")
+
             ###########################################
-            # Evaluation
+            # Evaluation per epoch
             ###########################################
-            eval_miou, class_ious = self.evaluate(epoch, save_output=True)
-            list_str_class_ious = list(map(lambda n: '%.4f' %n, class_ious))
-            str_class_ious = ','.join(list_str_class_ious)
-            self.logger_eval.info(f"{eval_miou:.4f},{str_class_ious}")
+            # ev_miou, ev_class_ious = self.evaluate(epoch, save_output=True)
+            # list_ev_class_ious = list(map(lambda n: '%.4f' %n, ev_class_ious))
+            # ev_str_class_ious = ','.join(list_ev_class_ious)
+            # self.logger_eval.info(f"{ev_miou:.4f},{ev_str_class_ious}")
 
             ###########################################
             # Summary
             ###########################################
             feed_dict = {
-                self.network.ph_summary: (mean_cost, mean_cost_wd, eval_miou, *class_ious)
+                self.network.ph_summary: (mean_cost, mean_cost_wd, tr_miou, *tr_class_ious)
             }
             summaries = self.network.session.run(self.network.summaries, feed_dict=feed_dict)
             self.network.summary_writer.add_summary(summaries, epoch)
@@ -181,6 +220,14 @@ class ICNet:
             ###########################################
             if (epoch + 1) % 50 == 0:
                 self.ckpt_handler.save_ckpt(epoch)
+
+        ###########################################
+        # Evaluation after training
+        ###########################################
+        ev_miou, ev_class_ious = self.evaluate_after_training(9999, save_output=True)
+        list_ev_class_ious = list(map(lambda n: '%.4f' %n, ev_class_ious))
+        ev_str_class_ious = ','.join(list_ev_class_ious)
+        self.logger_eval.info(f"{ev_miou:.4f},{ev_str_class_ious}")
 
         self.dataset.close()
 
