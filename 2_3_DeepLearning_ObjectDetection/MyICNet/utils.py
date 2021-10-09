@@ -27,8 +27,8 @@ class CityscapesReader(object):
         # self.dataset_root = '/mnt/e/Datasets'
         self.dataset_root = 'D:\\sjy\\Datasets'
         # self.dataset_root = '/home/ynjn/sdb/Datasets'
-        self.dataset_dir = 'cityscape-dist'
-        # self.dataset_dir = 'cityscape_subset'
+        # self.dataset_dir = 'cityscape-dist'
+        self.dataset_dir = 'cityscape_subset'
         self.cityscape_data = {
             'train_img_path': os.path.join(self.dataset_root, self.dataset_dir, 'leftImg8bit', 'train'),
             'train_label_path': os.path.join(self.dataset_root, self.dataset_dir, 'gtFine', 'train'),

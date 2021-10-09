@@ -9,6 +9,7 @@ import utils
 import network_model
 from util_ckpt import CheckPtHandler
 from util_log import Loggers
+import numpy as np
 
 tf.disable_eager_execution()
 
@@ -160,8 +161,9 @@ class ICNet:
             # Evaluation
             ###########################################
             eval_miou, class_ious = self.evaluate(epoch, save_output=True)
-            self.logger_eval.info(f"{eval_miou:.4f}")
-            self.logger_eval.info(class_ious)
+            list_str_class_ious = list(map(lambda n: '%.4f' %n, class_ious))
+            str_class_ious = ','.join(list_str_class_ious)
+            self.logger_eval.info(f"{eval_miou:.4f},{str_class_ious}")
 
             ###########################################
             # Summary
