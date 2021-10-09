@@ -164,7 +164,10 @@ class NetModel():
         loss = tf.summary.scalar("Loss", self.ph_summary[0])
         loss_wd = tf.summary.scalar("Loss_Wd", self.ph_summary[1])
         miou = tf.summary.scalar("mIoU", self.ph_summary[2])
-        class_ious = [tf.summary.scalar(f"Class_IoU{i}", self.ph_summary[i+3]) for i in range(19)]
+        # class_ious = [tf.summary.scalar(f"Class_IoU{i}", self.ph_summary[i+3]) for i in range(19)]
+        class_ious = []
+        for i in range(19):
+            class_ious.append(tf.summary.scalar(f"Class_IoU{i}", self.ph_summary[i+3]))
         return tf.summary.merge((loss, loss_wd, miou, *class_ious))
 
     # makes 2d confusion matrix
@@ -176,20 +179,6 @@ class NetModel():
         hist = tf.bincount(merged_maps, minlength=0x10000)
         hist_2d = tf.reshape(hist, (256, 256))
         conf_matrix_2d = hist_2d[:19, :19]
-
-        # # nonzero bin indices
-        # # nonzero_indices: 2 dim
-        # nonzero_indices = tf.where(tf.math.not_equal(hist, 0))
-        #
-        # # nonzero_values: 2 dim -> 1 dim
-        # nonzero_values_2d = tf.gather(hist, nonzero_indices)
-        # nonzero_values_1d = tf.squeeze(nonzero_values_2d)
-        # # indices(1d or 2d), output_shape(1d), values(1d)
-        # conf_matrix_1d = tf.sparse_to_dense(nonzero_indices,
-        #                                     ((256 * 256),),
-        #                                     nonzero_values_1d,
-        #                                     0)
-        # conf_matrix_2d = tf.reshape(conf_matrix_1d, (256, 256))
         return conf_matrix_2d
 
     # calculate Mean IoU
@@ -203,20 +192,11 @@ class NetModel():
         # gt_class_num = tf.cast(tf.count_nonzero(row_sum), dtype=tf.float64)
         # diagonal elements (the number of True Positive for all classes)
         diag = tf.squeeze(tf.diag_part(conf_matrix))
+        diag_float = tf.cast(diag, tf.float64)
         union = row_sum + col_sum - diag
-        # only nonzeros of union
-        nonzero_indices = tf.where(tf.not_equal(union, 0))
-        union_nonzero_values_2d = tf.gather(union, nonzero_indices)
-        union_nonzero_values_1d = tf.squeeze(union_nonzero_values_2d)
-        union_nonzero_values_1d = tf.cast(union_nonzero_values_1d, tf.float64)
-        diag_nonzero_values_2d = tf.gather(diag, nonzero_indices)
-        diag_nonzero_values_1d = tf.squeeze(diag_nonzero_values_2d)
-        diag_nonzero_values_1d = tf.cast(diag_nonzero_values_1d, tf.float64)
-        union_nonzero_size = tf.cast(tf.size(union_nonzero_values_1d, out_type=tf.int32), dtype=tf.float64)
-        # IoUs of each class
-        class_ious = tf.math.divide_no_nan(diag_nonzero_values_1d, union_nonzero_values_1d)
-        # sum all IoUs and divide the number of classes
-        mIoU = tf.math.truediv(tf.reduce_sum(tf.math.truediv(diag_nonzero_values_1d, union_nonzero_values_1d)), union_nonzero_size)
-        # mIoU = tf.truediv(tf.reduce_sum(tf.truediv(diag_nonzero_values_1d, union_nonzero_values_1d)), gt_class_num)
+        union_float = tf.cast(union, tf.float64)
+
+        class_ious = tf.math.divide_no_nan(diag_float, union_float)
+        mIoU = tf.reduce_mean(class_ious)
         return mIoU, class_ious
 
