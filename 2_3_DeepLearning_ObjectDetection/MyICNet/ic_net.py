@@ -179,7 +179,7 @@ class ICNet:
             ###########################################
             #  Checkpoint
             ###########################################
-            if epoch % 50 == 0:
+            if (epoch + 1) % 50 == 0:
                 self.ckpt_handler.save_ckpt(epoch)
 
         self.dataset.close()
