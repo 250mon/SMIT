@@ -234,7 +234,7 @@ class CityscapesReader(object):
 
         # process only the first image of the list
         # sq_row = int(np.sqrt(np.shape(images)[0]))
-        sq_row = 2
+        sq_row = 1
         total_imgs = []
         total_preds = []
         total_gts = []
