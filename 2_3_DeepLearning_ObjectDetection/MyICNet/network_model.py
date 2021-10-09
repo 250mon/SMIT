@@ -1,6 +1,5 @@
 import tensorflow.compat.v1 as tf
 import tensorflow.bitwise as tw
-import numpy as np
 import network_branches as nbr
 
 
@@ -21,8 +20,6 @@ class NetModel():
         # for tensorboard summary creation of loss and accuracy
         self.ph_summary = tf.placeholder(dtype=tf.float32, name='summary')
 
-        # for debugging
-        self.t_probes = None
         ########################################################
         # Train and Evaluation Operations
         ########################################################
@@ -66,9 +63,9 @@ class NetModel():
         highbr_post = nbr.HighBranchPost(self.ic_net)
         cff1 = nbr.CFFModule(self.ic_net, term_name='cff1')
         cff2 = nbr.CFFModule(self.ic_net, term_name='cff2')
-        org_size = self._get_org_hw_size()
 
-        t_midbr_conv_out = midbr.build(self._resize_images(self.t_inputs, (org_size*0.5).astype(np.int32)))
+        org_size_float = tf.cast(tf.shape(self.t_inputs)[1:3], tf.float32)
+        t_midbr_conv_out = midbr.build(self._resize_images(self.t_inputs, tf.cast(tf.multiply(org_size_float, 0.5), tf.int32)))
         t_lowbr_out = lowbr.build(t_midbr_conv_out)
         # t_lowbr_pred 1/16
         t_lowbr_pred, t_midbr_out = cff1.build(t_lowbr_out, t_midbr_conv_out)
@@ -87,10 +84,6 @@ class NetModel():
         loss = 0.4 * lowbr_loss + 0.4 * midbr_loss + highbr_loss
         return loss, t_outputs
 
-    # image and label size (h x w) are the same
-    def _get_org_hw_size(self):
-        return np.array(self.ic_net.dataset.TRAIN_SIZE)
-
     # input size: (h, w)
     def _resize_images(self, t_images, size):
         return tf.image.resize_bilinear(t_images, size, align_corners=True)
@@ -100,21 +93,21 @@ class NetModel():
         return tf.image.resize_nearest_neighbor(t_labels, size, align_corners=True)
 
     def _create_branch_labels(self):
-        # original label: 720 x 720
         factors = {
                 'highbr': 0.25,
                 'midbr': 0.125,
                 'lowbr': 0.0625,
                 }
-        org_size = self._get_org_hw_size()
-        factors_num = np.array(list(factors.values()))
-        sizes = np.outer(factors_num, org_size)
+        tensor_size = tf.shape(self.t_batch_lab)[1:3]
+        factors_num = tf.constant(list(factors.values()))
+        # outer product
+        hw_sizes = tf.cast(tf.tensordot(factors_num, tf.cast(tensor_size, tf.float32), axes=0), tf.int32)
 
         t_br_labels = {
             'main': self.t_batch_lab,
         }
-        for br, size in zip(factors.keys(), sizes):
-            t_br_labels[br] = self._resize_labels(self.t_batch_lab, size)
+        for i, br in enumerate(factors.keys()):
+            t_br_labels[br] = self._resize_labels(self.t_batch_lab, hw_sizes[i])
         return t_br_labels
 
     # t_gt: ground truth, t_pred: prediction

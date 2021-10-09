@@ -27,8 +27,8 @@ class CityscapesReader(object):
         # self.dataset_root = '/mnt/e/Datasets'
         self.dataset_root = 'D:\\sjy\\Datasets'
         # self.dataset_root = '/home/ynjn/sdb/Datasets'
-        # self.dataset_dir = 'cityscape-dist'
-        self.dataset_dir = 'cityscape_subset'
+        self.dataset_dir = 'cityscape-dist'
+        # self.dataset_dir = 'cityscape_subset'
         self.cityscape_data = {
             'train_img_path': os.path.join(self.dataset_root, self.dataset_dir, 'leftImg8bit', 'train'),
             'train_label_path': os.path.join(self.dataset_root, self.dataset_dir, 'gtFine', 'train'),
@@ -94,7 +94,7 @@ class CityscapesReader(object):
         while(1):
             if self.end_flag[0]:
                 break
-            _batch = self._get_batch(type='train')
+            _batch = self._get_batch()
             while(1):
                 if len(self.buffer) < self.buffer_size:
                     break
@@ -107,28 +107,18 @@ class CityscapesReader(object):
             self.lock.release()
             #print('Stuffed - Buffer Size  {:d}'.format(len(self.buffer)))
 
-    # get train or test batch
-    def _get_batch(self, type='train'):
-        if self.img_list_pos[type]+self.batch_size > len(self.img_list[type])-1:
-            self.img_list_pos[type] = 0
-            random.shuffle(self.img_list[type])
-
-        # whether or not use augmentation
-        if type == 'train':
-            use_augment = self.augmentation
-        else: # test
-            use_augment = False
-
+    # get train batch
+    def _get_batch(self):
+        if self.img_list_pos['train']+self.batch_size > len(self.img_list['train'])-1:
+            self.img_list_pos['train'] = 0
+            random.shuffle(self.img_list['train'])
         img_cache = []
         lab_cache = []
         for index in range(self.batch_size):
-            img, lab = self._read_image(self.img_list[type][self.img_list_pos[type]], augment=use_augment)
-            
+            img, lab = self._read_image(self.img_list['train'][self.img_list_pos['train']], augment=self.augmentation)
             img_cache.append(img)
             lab_cache.append(lab)
-            
-            self.img_list_pos[type] += 1
-                
+            self.img_list_pos['train'] += 1
         img_batch = np.stack(img_cache, axis=0)
         lab_batch = np.stack(lab_cache, axis=0)
         return img_batch, lab_batch
@@ -153,19 +143,15 @@ class CityscapesReader(object):
             lab_sample = cv2.resize(lab_sample, tuple(new_size), interpolation=cv2.INTER_NEAREST)
                         
             crop_pos = np.round((np.shape(img_sample)[0:2] - tr_size)*np.random.uniform()).astype(np.int32)
-            
             if len(np.shape(lab_sample)) == 2:
                 lab_sample = np.expand_dims(lab_sample, axis=2)
-                
             img_sample = img_sample[crop_pos[0]:crop_pos[0]+tr_size[0], crop_pos[1]:crop_pos[1]+tr_size[1], :]
             lab_sample = lab_sample[crop_pos[0]:crop_pos[0]+tr_size[0], crop_pos[1]:crop_pos[1]+tr_size[1], :]
             
         else:
             crop_pos = np.round((np.shape(img_sample)[:2] - tr_size)*np.random.uniform()).astype(np.int32)
-            
             if len(np.shape(lab_sample)) == 2:
                 lab_sample = np.expand_dims(lab_sample, axis=2)
-            
             img_sample = img_sample[crop_pos[0]:crop_pos[0]+tr_size[0], crop_pos[1]:crop_pos[1]+tr_size[1], :]
             lab_sample = lab_sample[crop_pos[0]:crop_pos[0]+tr_size[0], crop_pos[1]:crop_pos[1]+tr_size[1], :]
                             
@@ -183,8 +169,27 @@ class CityscapesReader(object):
                 break
         return item
 
+    # get train batch
+    def _get_eval_batch(self):
+        if self.img_list_pos['test']+self.batch_size > len(self.img_list['test'])-1:
+            self.img_list_pos['test'] = 0
+            random.shuffle(self.img_list['test'])
+        img_cache = []
+        lab_cache = []
+        path = self.img_list['test'][self.img_list_pos['test']]
+        for index in range(self.batch_size):
+            img = cv2.imread(path[0], cv2.IMREAD_UNCHANGED)
+            lab = cv2.imread(path[1], cv2.IMREAD_UNCHANGED)
+            lab = np.expand_dims(lab, axis=2)
+            img_cache.append(img)
+            lab_cache.append(lab)
+            self.img_list_pos['test'] += 1
+        img_batch = np.stack(img_cache, axis=0)
+        lab_batch = np.stack(lab_cache, axis=0)
+        return img_batch, lab_batch
+
     def next_eval_batch(self):
-        return self._get_batch(type='test')
+        return self._get_eval_batch()
     
     def close(self):
         self.end_flag[0] = True

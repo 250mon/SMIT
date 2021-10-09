@@ -301,7 +301,7 @@ class PyramidPoolLayer(Layer):
             # [h, w]
             tensor_size = tf.shape(tinputs)[1:3]
             pooled_out_size = tf.constant([1.0, 1/2, 1/3, 1/6])
-            # [[h, w], [h/2, w/2], ...]
+            # [[h, w], [h/2, w/2], ...] using outer product
             pool_hw_sizes = tf.cast(tf.tensordot(pooled_out_size, tf.cast(tensor_size, tf.float32), axes=0), tf.int32)
 
             ltensors = []

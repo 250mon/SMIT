@@ -9,13 +9,15 @@ import utils
 import network_model
 from util_ckpt import CheckPtHandler
 from util_log import Loggers
-import numpy as np
 
 tf.disable_eager_execution()
 
 
 class ICNet:
     def __init__(self, name):
+        # for debugging
+        self.t_probes = None
+
         self.settings = Settings()
         self.settings.tb_log_dir = self.settings.tb_log_dir + '_' + name
         self.settings.ckpt_dir = self.settings.ckpt_dir + '_' + name

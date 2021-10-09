@@ -1,8 +1,5 @@
-import sys
-import numpy as np
 import tensorflow.compat.v1 as tf
 import network_layers as nls
-import pdb
 
 
 class MidBranch(nls.Layer):
@@ -43,7 +40,8 @@ class LowBranch(nls.Layer):
         addon_layer = nls.AddOnLayer(self.net_params, term_name=self.term_name)
 
         self.push_to_terminal(tinputs)
-        addon_layer.resize_images(np.multiply(tinputs.shape[1:3], 0.5).astype(np.int32), sname='lowbr_downsample_by_2')
+        hw_size = tf.cast(tf.shape(tinputs)[1:3], tf.float32)
+        addon_layer.resize_images(tf.cast(tf.multiply(hw_size, 0.5), tf.int32), sname='lowbr_downsample_by_2')
         res_blk_layer.op(iCin=512, iCout=512, istride=1, sname='lowbr_conv3_2')
         res_blk_layer.op(iCin=512, iCout=512, istride=1, sname='lowbr_conv3_3')
         res_blk_layer.op(iCin=512, iCout=512, istride=1, sname='lowbr_conv3_4')
@@ -88,9 +86,9 @@ class HighBranchPost(nls.Layer):
         conv_layer = nls.ConvLayer(self.net_params, term_name=self.term_name)
 
         self.push_to_terminal(tinputs)
-        t_tap = addon_layer.resize_images(np.array(tinputs.shape[1:3])*2, sname=self.term_name+'_upsample_by_2')
+        t_tap = addon_layer.resize_images(tf.multiply(tf.shape(tinputs)[1:3], 2), sname=self.term_name+'_upsample_by_2')
         t_high_classified = conv_layer.op(lfilter_shape=(1, 1, tinputs.shape[3], self.net_params.class_num), buse_bias=True, sname='11_'+self.term_name+'_F1_class_conv')
-        addon_layer.resize_images(np.array(t_tap.shape[1:3])*4, sname=self.term_name+'_upsample_by_4')
+        addon_layer.resize_images(tf.multiply(tf.shape(t_tap)[1:3], 4), sname=self.term_name+'_upsample_by_4')
         # The final output retrieved has 19 channels
         return t_high_classified, self.retrieve_from_terminal()
 
@@ -109,15 +107,20 @@ class CFFModule(nls.Layer):
 
         # for F1
         self.push_to_terminal(tinputs_f1)
-        f1_hw_dim = tinputs_f1.shape[1:3]
+        f1_hw_dim = tf.shape(tinputs_f1)[1:3]
         # hack; hw is supposed to be 45 (720/16).
         # but, after a couple of stride convs, the size ends up being 22.5
         # and eventually, it becomes 44 by upsampling and leads to an error
-        if f1_hw_dim[0] == 22:
-            f1_upsampled_size = np.multiply(f1_hw_dim, 2) + 1
-        else:
-            f1_upsampled_size = np.multiply(f1_hw_dim, 2)
+        # if f1_hw_dim[0] == 22:
+        #     f1_upsampled_size = np.multiply(f1_hw_dim, 2) + 1
+        # else:
+        #     f1_upsampled_size = np.multiply(f1_hw_dim, 2)
 
+        f1_upsampled_size = tf.cond(tf.math.equal(f1_hw_dim[0], 22),
+                                    lambda: tf.math.multiply(f1_hw_dim, 2)+1,
+                                    lambda: tf.math.multiply(f1_hw_dim, 2))
+
+        # f1_c_dim = tf.shape(tinputs_f1)[3]
         f1_c_dim = tinputs_f1.shape[3]
         t_f1_tap = addon_layer.resize_images(f1_upsampled_size, sname=sname+'_upsample_by_2')
         conv_layer.op(lfilter_shape=(3, 3, f1_c_dim, 128), idilations=2, buse_bias=True, sname=sname+'_F1_conv')
@@ -129,6 +132,7 @@ class CFFModule(nls.Layer):
 
         # for F2
         self.push_to_terminal(tinputs_f2)
+        # f2_c_dim = tf.shape(tinputs_f2)[3]
         f2_c_dim = tinputs_f2.shape[3]
         conv_layer.op(lfilter_shape=(1, 1, f2_c_dim, 128), buse_bias=True, sname='11_'+sname+'_F2_conv')
         t_f2_out = addon_layer.batch_norm(iCin=128, smode='CONV', sname=sname+'_F2_bn')
