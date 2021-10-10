@@ -86,7 +86,7 @@ class ICNet:
         mean_class_ious = np.array([0.] * 19)
 
         for step in range(num_of_batches):
-            print(f"Step {step}/{num_of_batches} running...")
+            print(f"Epoch{epoch}/{self.settings.num_epoch} Step{step}/{num_of_batches} running...")
 
             batch_images, batch_labels = self.dataset.next_batch()
             feed_dict = {
