@@ -224,7 +224,7 @@ class ICNet:
         ###########################################
         # Evaluation after training
         ###########################################
-        ev_miou, ev_class_ious = self.evaluate_after_training(9999, save_output=True)
+        ev_miou, ev_class_ious = self.evaluate_after_training(end_epoch, save_output=True)
         list_ev_class_ious = list(map(lambda n: '%.4f' %n, ev_class_ious))
         ev_str_class_ious = ','.join(list_ev_class_ious)
         self.logger_eval.info(f"AfterEpoch{end_epoch},{ev_miou:.4f},{ev_str_class_ious}")
