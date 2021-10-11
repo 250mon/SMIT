@@ -190,7 +190,14 @@ class CityscapesReader(object):
 
     def next_eval_batch(self):
         return self._get_eval_batch()
-    
+
+    def get_random_image(self, type='train'):
+        pos = np.random.randint(len(self.img_list[type]))
+        path = self.img_list[type][pos]
+        img = np.expand_dims(cv2.imread(path[0], cv2.IMREAD_UNCHANGED), axis=0)
+        lab = np.expand_dims(cv2.imread(path[1], cv2.IMREAD_UNCHANGED), axis=0)
+        return f'{type}_{pos}', img, lab
+
     def close(self):
         self.end_flag[0] = True
         print('Closing Processes....................................')

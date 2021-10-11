@@ -161,7 +161,7 @@ class ICNet:
             mean_class_ious += class_ious
 
             if save_output is True and step == num_of_eval_batches-1:
-                self._validate_imgs(eval_images, pred_labels, eval_labels, f'e{epoch:05d}')
+                self._validate_imgs(eval_images, pred_labels, eval_labels, f'eval after {epoch:05d}')
 
         mean_miou /= float(num_of_eval_batches)
         mean_class_ious /= float(num_of_eval_batches)
@@ -231,9 +231,42 @@ class ICNet:
 
         self.dataset.close()
 
+    # can be used when we want to run the network on one image
+    def run_on_img(self, save_output=True):
+        print("---------------------------------------------------------")
+        print("         Starting ICNet")
+        print("---------------------------------------------------------")
+
+        # creating network
+        self._build_graph()
+        self.logger_train = self.loggers.create_logger('icnet_train')
+        self.logger_eval = self.loggers.create_logger('icnet_eval')
+
+        # ckpt_epoch becomes the cum start epoch
+        ckpt_epoch = self.ckpt_handler.restore_ckpt()
+
+        ###########################################
+        # Run it on an image
+        ###########################################
+        print(f"Running the network on a iamge...")
+        p_feed_dict = self._partial_feed_dict(0, proc='eval')
+        img_id, eval_image, eval_label = self.dataset.get_random_image(type='train')
+        feed_dict = {
+            self.network.t_batch_img: eval_image,
+            self.network.t_batch_lab: eval_label,
+            **p_feed_dict,
+        }
+        # session run
+        pred_label = self.network.session.run(self.network.t_pred_labels, feed_dict=feed_dict)
+
+        if save_output:
+            self._validate_imgs(eval_image, pred_label, eval_label, f'Run Result({img_id})')
+
+        self.dataset.close()
 
 
 if __name__ == '__main__':
     icn = ICNet('dummy')
-    icn.run()
+    # icn.run()
+    icn.run_on_img()
     print("The End\n\n\n")
