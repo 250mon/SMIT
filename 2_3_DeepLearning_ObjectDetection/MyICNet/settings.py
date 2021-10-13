@@ -7,10 +7,13 @@ class Settings:
         _args = self._get_arguments()
         self.batch_size = 16
         self.learning_rate = 0.001
+        self.num_epoch = _args.num_epoch
         self.ld_epoch = _args.ld_epoch
         self.ckpt_dir = _args.ckpt_dir
         self.tb_log_dir = _args.tb_log_dir
         self.res_dir = _args.res_dir
+        self.random = _args.random
+        self.random_type = _args.random_type
 
     def _get_arguments(self):
         parser=argparse.ArgumentParser('Implementation for PyNet handwritten digits 2021')
