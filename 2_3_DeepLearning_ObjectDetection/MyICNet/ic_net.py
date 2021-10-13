@@ -269,7 +269,7 @@ class ICNet:
                                     f'Epoch({ckpt_epoch}) Run({img_id})')
 
             keep_running = input("Type q to quit, otherwise run it once more")
-            if keep_running = 'q':
+            if keep_running == 'q':
                 break
 
         self.dataset.close()
