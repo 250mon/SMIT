@@ -247,24 +247,30 @@ class ICNet:
 
         # ckpt_epoch becomes the cum start epoch
         ckpt_epoch = self.ckpt_handler.restore_ckpt()
+        type = self.settings.random_type
 
         ###########################################
         # Run it on an image
         ###########################################
-        print(f"Running the network on a iamge...")
-        p_feed_dict = self._partial_feed_dict(0, proc='eval')
-        img_id, eval_image, eval_label = self.dataset.get_random_image(type=self.settings.random_type)
-        feed_dict = {
-            self.network.t_batch_img: eval_image,
-            self.network.t_batch_lab: eval_label,
-            **p_feed_dict,
-        }
-        # session run
-        pred_label = self.network.session.run(self.network.t_pred_labels, feed_dict=feed_dict)
+        while True:
+            print(f"Running the network on a {type} iamge...")
+            p_feed_dict = self._partial_feed_dict(0, proc='eval')
+            img_id, eval_image, eval_label = self.dataset.get_random_image(type=type)
+            feed_dict = {
+                self.network.t_batch_img: eval_image,
+                self.network.t_batch_lab: eval_label,
+                **p_feed_dict,
+            }
+            # session run
+            pred_label = self.network.session.run(self.network.t_pred_labels, feed_dict=feed_dict)
 
-        if save_output:
-            self._validate_imgs(eval_image, pred_label, eval_label,
-                                f'Epoch({ckpt_epoch}) Run({img_id})')
+            if save_output:
+                self._validate_imgs(eval_image, pred_label, eval_label,
+                                    f'Epoch({ckpt_epoch}) Run({img_id})')
+
+            keep_running = input("Type q to quit, otherwise run it once more")
+            if keep_running = 'q':
+                break
 
         self.dataset.close()
 
