@@ -268,7 +268,7 @@ class ICNet:
                 self._validate_imgs(eval_image, pred_label, eval_label,
                                     f'Epoch({ckpt_epoch}) Run({img_id})')
 
-            keep_running = input("Type q to quit, otherwise run it once more")
+            keep_running = input("Enter q to quit, otherwise run it once more... ")
             if keep_running == 'q':
                 break
 
