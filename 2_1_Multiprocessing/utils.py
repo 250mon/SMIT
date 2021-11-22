@@ -6,17 +6,27 @@ import random
 import time
 import cv2
 from multiprocessing import Process, Manager, Lock
-
+from operator import methodcaller
 
 class Config(object):
-    def __init__(self, data_dir):
+    def __init__(self):
         # Setting dataset directory
         # self.DATA_DIR = '../Datasets/DIV2K/TRAIN'
-        self.DATA_DIR = data_dir
+        self.config_param = self.read_config()
+        self.DATA_DIR = self.config_param['data_dir']
+        assert os.path.exists(self.DATA_DIR)
         self.BUFFER_SIZE = 128  # fix this value (don't change)
         self.POOL_SIZE = 8  # number of Process(Thread) pool
         self.BATCH_SIZE = 4
         self.READ_SIZE = [512, 512]
+
+    def read_config(self):
+        with open('config', 'r') as fd:
+            lines = fd.readlines()
+        lines = map(methodcaller('strip'), lines)
+        lines = list(map(methodcaller('split', ";"), lines))
+        res_dict = {lines[i][0]: lines[i][1] for i in range(len(lines))}
+        return res_dict
 
 
 class ImageReader(object):

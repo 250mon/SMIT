@@ -4,15 +4,11 @@ import numpy as np
 import os
 from utils import ImageReader, Config
 
-# data_dir = '../Datasets/DIV2K_train_HR'
-# data_dir = os.path.join('D:\\', 'Datasets', 'multiprocessing', 'DIV2K_train_HR')
-data_dir = os.path.join('C:\\', 'Users', 'user', 'Documents', 'SMIT', 'Datasets', 'DIV2K_train_HR')
-assert os.path.exists(data_dir)
+# data_dir = os.path.join('C:\\', 'Users', 'user', 'Documents', 'SMIT', 'Datasets', 'DIV2K_train_HR')
 
 def main():
     start_time = time.time()
-    cfg = Config(data_dir)
-    cfg.DATA_DIR = data_dir
+    cfg = Config()
     reader = ImageReader(cfg)
     loop = int(reader.img_list_size * 5)  # five epoch simulation
     cv2.namedWindow('Images', cv2.WINDOW_AUTOSIZE)

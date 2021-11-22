@@ -1,4 +1,5 @@
 from multiprocessing.pool import ThreadPool
+from multiprocessing.pool import Pool
 import os, time
 
 
@@ -11,7 +12,8 @@ def hello(x):
 
 
 if __name__ == "__main__":
-    p = ThreadPool(5)
+    # p = ThreadPool(5)
+    p = Pool(5)
     # mapping data in iterable to a thread in Pool, execute concurrently
     # get each result, return the collected results as a list
     pool_output = p.map(hello, range(5))
