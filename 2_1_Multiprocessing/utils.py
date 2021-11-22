@@ -6,6 +6,8 @@ import random
 import time
 import cv2
 from multiprocessing import Process, Manager, Lock
+from multiprocessing.pool import ThreadPool
+from multiprocessing.pool import Pool
 from operator import methodcaller
 
 class Config(object):
@@ -28,12 +30,16 @@ class Config(object):
         res_dict = {lines[i][0]: lines[i][1] for i in range(len(lines))}
         return res_dict
 
+def init_pool(lock):
+    global g_lock
+    g_lock = lock
 
 class ImageReader(object):
     def __init__(self, cfg):
         self.buffer = Manager().list([])
         self.buffer_size = cfg.BUFFER_SIZE
-        self.lock = Lock()
+        # self.lock = Lock()
+        self.lock = Manager().Lock()
 
         self.img_list = glob.glob(os.path.join(cfg.DATA_DIR, "*.*"))
         random.shuffle(self.img_list)
@@ -44,9 +50,16 @@ class ImageReader(object):
         self.batch_size = cfg.BATCH_SIZE
         self.read_size = np.array(cfg.READ_SIZE)
 
-        self.p = Process(target=self._start_buffer)
-        self.p.daemon = True
-        self.p.start()
+        # single process
+        # self.p = Process(target=self._start_buffer)
+        # self.p.daemon = True
+        # self.p.start()
+
+        # mp pool
+        pool = Pool(self.pool_size, initializer=init_pool, initargs=(self.lock,))
+        # pool = Pool(self.pool_size)
+        pool.apply_async(self._start_buffer)
+
         time.sleep(1)
 
     def _start_buffer(self):
@@ -57,9 +70,14 @@ class ImageReader(object):
                     break
                 else:
                     time.sleep(0)
+
             self.lock.acquire()
             self.buffer.append(batch)
             self.lock.release()
+
+            # g_lock.acquire()
+            # self.buffer.append(batch)
+            # g_lock.release()
 
     def _get_batch(self):
         batch = []

@@ -1,5 +1,3 @@
-from multiprocessing.pool import ThreadPool
-from multiprocessing.pool import Pool
 import os, time
 
 
