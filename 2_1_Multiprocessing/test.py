@@ -12,7 +12,8 @@ def main():
     reader = ImageReader(cfg)
     loop = int(reader.img_list_size * 1)  # five epoch simulation
     # cv2.namedWindow('Images', cv2.WINDOW_AUTOSIZE)
-    reader.start_pool()
+    # reader.start_pool()
+    reader._start_buffer()
 
     for idx in range(loop):
         batch = reader.get_next()

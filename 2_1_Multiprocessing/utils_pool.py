@@ -69,10 +69,14 @@ class ImageReader(object):
         # pool = Pool(self.pool_size)
         # pool.starmap_async(self._start_buffer, [(self.mp_q, i) for i in range(8)])
 
-    def _start_buffer(self, buf, dummy):
+    def _start_buffer(self) #, buf, dummy):
         print("start buffer")
+        buf = self.buffer
+        pool = Pool(self.pool_size)
         while True:
-            batch = self._get_batch()
+            result = pool.starmap_async(self._get_batch)
+            batch = result.get()
+            # batch = self._get_batch()
             # print("got a batch")
             while True:
                 # print(len(buf))
