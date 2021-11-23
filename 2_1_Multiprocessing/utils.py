@@ -38,7 +38,7 @@ class ImageReader(object):
     def __init__(self, cfg):
         self.buffer = Manager().list([])
         self.buffer_size = cfg.BUFFER_SIZE
-        # self.lock = Lock()
+        self.lock = Lock()
         self.lock = Manager().Lock()
 
         self.img_list = glob.glob(os.path.join(cfg.DATA_DIR, "*.*"))
@@ -50,14 +50,18 @@ class ImageReader(object):
         self.batch_size = cfg.BATCH_SIZE
         self.read_size = np.array(cfg.READ_SIZE)
 
-        # single process
+        # # single process
         # self.p = Process(target=self._start_buffer)
         # self.p.daemon = True
         # self.p.start()
 
-        # mp pool
-        pool = Pool(self.pool_size, initializer=init_pool, initargs=(self.lock,))
+        # # mp pool
+        # # pool = Pool(self.pool_size, initializer=init_pool, initargs=(self.lock,))
         # pool = Pool(self.pool_size)
+        # pool.apply_async(self._start_buffer)
+
+        # thread pool
+        pool = ThreadPool(self.pool_size)
         pool.apply_async(self._start_buffer)
 
         time.sleep(1)
