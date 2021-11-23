@@ -15,6 +15,7 @@ from operator import methodcaller
 class Config(object):
     def __init__(self):
         # Setting dataset directory
+        # self.DATA_DIR = '../Datasets/DIV2K/TRAIN'
         self.config_param = self.read_config()
         self.DATA_DIR = self.config_param['data_dir']
         assert os.path.exists(self.DATA_DIR)
@@ -40,9 +41,11 @@ class ImageReader(object):
         # IPC
         self.buffer = Manager().list([])
         self.buffer_size = cfg.BUFFER_SIZE
+        # self.mp_q = multiprocessing.Queue()
 
         # Lock
-        self.lock = Lock()
+        # self.lock = Lock()
+        self.lock = Manager().Lock()
 
         self.img_list = glob.glob(os.path.join(cfg.DATA_DIR, "*.*"))
         random.shuffle(self.img_list)
@@ -53,24 +56,33 @@ class ImageReader(object):
         self.batch_size = cfg.BATCH_SIZE
         self.read_size = np.array(cfg.READ_SIZE)
 
-        # single process
-        self.p = Process(target=self._start_buffer)
-        # self.p = Process(target=self._start_queue, args=(self.mp_q,))
-        self.p.daemon = True
-        self.p.start()
+    def start_pool(self):
+        # mp pool
+        pool = Pool(self.pool_size)
+        pool.starmap_async(self._start_buffer, [(self.buffer, i) for i in range(8)])
 
-        time.sleep(1)
+        # thread pool
+        # pool = ThreadPool(self.pool_size)
+        # pool.starmap_async(self._start_buffer, [(self.buffer, i) for i in range(8)])
 
-    def _start_buffer(self):
+        # # mp pool with queue
+        # pool = Pool(self.pool_size)
+        # pool.starmap_async(self._start_buffer, [(self.mp_q, i) for i in range(8)])
+
+    def _start_buffer(self, buf, dummy):
+        print("start buffer")
         while True:
             batch = self._get_batch()
+            # print("got a batch")
             while True:
-                if len(self.buffer) < self.buffer_size:
+                # print(len(buf))
+                if len(buf) < self.buffer_size:
                     break
                 else:
                     time.sleep(0)
+            # print("appending a batch")
             self.lock.acquire()
-            self.buffer.append(batch)
+            buf.append(batch)
             self.lock.release()
 
             # g_lock.acquire()
@@ -87,6 +99,18 @@ class ImageReader(object):
             else:
                 time.sleep(0)
         return item
+
+    def _start_queue(self, shared_q, dummy):
+        print("start queue")
+        # while True:
+        #     batch = self._get_batch()
+        #     shared_q.put(batch)
+
+    def get_next_from_queue(self):
+        return self.mp_q.get()
+
+    def close_queue(self):
+        self.mp_q.close()
 
     def _get_batch(self):
         batch = []
