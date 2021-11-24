@@ -12,8 +12,13 @@ from multiprocessing.pool import ThreadPool
 from multiprocessing.pool import Pool
 from operator import methodcaller
 
+
+pool = None
+
+# pool_type = [None | 'mp_pool' | 'thread_pool']
+# ipc_type = ['buffer' | 'queue']
 class Config(object):
-    def __init__(self):
+    def __init__(self, pool_type=None, ipc_type='buffer'):
         # Setting dataset directory
         # self.DATA_DIR = '../Datasets/DIV2K/TRAIN'
         self.config_param = self.read_config()
@@ -24,6 +29,9 @@ class Config(object):
         self.BATCH_SIZE = 4
         self.READ_SIZE = [512, 512]
 
+        self.pool_type = pool_type
+        self.ipc_type = ipc_type
+
     def read_config(self):
         with open('config', 'r') as fd:
             lines = fd.readlines()
@@ -32,20 +40,18 @@ class Config(object):
         res_dict = {lines[i][0]: lines[i][1] for i in range(len(lines))}
         return res_dict
 
-def init_pool(lock):
-    global g_lock
-    g_lock = lock
-
 class ImageReader(object):
     def __init__(self, cfg):
-        # IPC
-        self.buffer = Manager().list([])
-        self.buffer_size = cfg.BUFFER_SIZE
-        # self.mp_q = multiprocessing.Queue()
+        self.cfg = cfg
 
-        # Lock
-        # self.lock = Lock()
-        self.lock = Manager().Lock()
+        # IPC
+        if self.cfg.ipc_type == 'buffer':
+            self.ipc = Manager().list([])
+            self.buffer_size = cfg.BUFFER_SIZE
+            self.lock = Manager().Lock()
+        else:
+            self.ipc = Manager().Queue()
+            self.lock = Manager().Lock()
 
         self.img_list = glob.glob(os.path.join(cfg.DATA_DIR, "*.*"))
         random.shuffle(self.img_list)
@@ -56,65 +62,88 @@ class ImageReader(object):
         self.batch_size = cfg.BATCH_SIZE
         self.read_size = np.array(cfg.READ_SIZE)
 
-    def start_pool(self):
-        # mp pool
-        pool = Pool(self.pool_size)
-        pool.starmap_async(self._start_buffer, [(self.buffer, i) for i in range(8)])
+        self.start_ipc_func = {
+            'buffer': self._start_buffer,
+            'queue': self._start_queue,
+        }
+        self.get_next_func = {
+            'buffer': self._get_next_from_buffer,
+            'queue': self._get_next_from_queue,
+        }
 
-        # thread pool
-        # pool = ThreadPool(self.pool_size)
-        # pool.starmap_async(self._start_buffer, [(self.buffer, i) for i in range(8)])
+    def get_ipc_info(self):
+        if self.cfg.ipc_type == 'buffer':
+            return f'Current Buffer length {len(self.ipc)}'
+        else:
+            return f'Current Queue size {self.ipc.qsize()}'
 
-        # # mp pool with queue
-        # pool = Pool(self.pool_size)
-        # pool.starmap_async(self._start_buffer, [(self.mp_q, i) for i in range(8)])
+    def get_next(self):
+        return self.get_next_func[self.cfg.ipc_type]()
 
-    def _start_buffer(self) #, buf, dummy):
-        print("start buffer")
-        buf = self.buffer
-        pool = Pool(self.pool_size)
+    def start_reader(self):
+        if self.cfg.pool_type is None:
+            # single child process
+            proc = Process(target=self._start_ipc, args=(self.ipc,))
+            proc.daemon = True
+            proc.start()
+        else:
+            # multiple child processes
+            self._start_pool()
+
+    def _start_ipc(self, ipc):
+        # print('starting ipc')
+        return self.start_ipc_func[self.cfg.ipc_type](ipc)
+
+    def _start_buffer(self, buf):
+        # print("start buffer")
         while True:
-            result = pool.starmap_async(self._get_batch)
-            batch = result.get()
-            # batch = self._get_batch()
-            # print("got a batch")
+            batch = self._get_batch()
             while True:
-                # print(len(buf))
                 if len(buf) < self.buffer_size:
                     break
                 else:
                     time.sleep(0)
-            # print("appending a batch")
             self.lock.acquire()
             buf.append(batch)
             self.lock.release()
 
-            # g_lock.acquire()
-            # self.buffer.append(batch)
-            # g_lock.release()
-
-    def get_next(self):
+    def _get_next_from_buffer(self):
         while True:
-            if len(self.buffer):
+            if len(self.ipc):
                 self.lock.acquire()
-                item = self.buffer.pop(0)
+                item = self.ipc.pop(0)
                 self.lock.release()
                 break
             else:
                 time.sleep(0)
         return item
 
-    def _start_queue(self, shared_q, dummy):
-        print("start queue")
-        # while True:
-        #     batch = self._get_batch()
-        #     shared_q.put(batch)
+    def _start_pool(self):
+        # print("starting pool")
+        global pool
 
-    def get_next_from_queue(self):
-        return self.mp_q.get()
+        if self.cfg.pool_type == 'mp_pool':
+            pool = Pool(self.pool_size)
+        else:
+            pool = ThreadPool(self.pool_size)
 
-    def close_queue(self):
-        self.mp_q.close()
+        for i in range(8):
+            pool.apply_async(self._start_ipc, (self.ipc,))
+
+    def _start_queue(self, shared_q):
+        # print("start queue")
+        while True:
+            batch = self._get_batch()
+            shared_q.put(batch)
+            # sleep(0)
+
+    def _get_next_from_queue(self):
+        return self.ipc.get()
+
+    def close(self):
+        if self.cfg.pool_type == 'mp_pool':
+            pool.terminate()
+            pool.join()
 
     def _get_batch(self):
         batch = []

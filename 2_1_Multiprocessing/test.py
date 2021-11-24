@@ -8,19 +8,17 @@ from utils_pool import ImageReader, Config
 
 def main():
     start_time = time.time()
-    cfg = Config()
+    cfg = Config(pool_type=None, ipc_type='buffer')
     reader = ImageReader(cfg)
     loop = int(reader.img_list_size * 1)  # five epoch simulation
     # cv2.namedWindow('Images', cv2.WINDOW_AUTOSIZE)
-    # reader.start_pool()
-    reader._start_buffer()
+    reader.start_reader()
 
     for idx in range(loop):
         batch = reader.get_next()
-        print('Buffer Fullness at ({:d}) - {:d}'.format(idx, len(reader.buffer)))
-
-        # batch = reader.get_next_from_queue()
-        # print('Queue Size at ({:d}) - {:d}'.format(idx, reader.mp_q.qsize()))
+        print(f'Epoch{idx}, ', reader.get_ipc_info())
+        # print('Buffer Fullness at ({:d}) - {:d}'.format(idx, len(reader.buffer)))
+        # print('Queue Size at ({:d}) - {:d}'.format(idx, reader.queue.qsize()))
 
         image = np.concatenate(
             (np.concatenate((batch[0], batch[1]), axis=1), np.concatenate((batch[2], batch[3]), axis=1)), axis=0)
@@ -30,7 +28,7 @@ def main():
         # if key == ord('q'):
         #     break
 
-    reader.close_queue()
+    reader.close()
 
     duration = time.time() - start_time
     print('Multiprocessing Simulation - Done in {:.3f}(sec)'.format(duration))
