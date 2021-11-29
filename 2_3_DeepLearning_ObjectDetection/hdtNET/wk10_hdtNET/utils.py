@@ -9,11 +9,15 @@ import numpy as np
 import os, glob, random, time
 import PIL.Image as Image
 from multiprocessing import Process, Manager, Lock
+from read_config import read_config
 
 class Config(object):
     # Setting dataset directory
-    CITYSCAPES_DATA_DIR = '/home/ygkim/hdtNET/cityscapes'
-    COCO_DATA_DIR = '../Dataset/Train'
+    # CITYSCAPES_DATA_DIR = '/home/ygkim/hdtNET/cityscapes'
+    # COCO_DATA_DIR = '../Dataset/Train'
+    dirs = read_config('wk10_config')
+    CITYSCAPES_DATA_DIR = dirs['CITYSCAPES_DATA_DIR']
+    COCO_DATA_DIR = dirs['COCO_DATA_DIR']
     #CITYSCAPES_DATA_DIR = 'D:\\hdtNET\\cityscapes'
     CITYSCAPES_train_list = os.path.join(CITYSCAPES_DATA_DIR, 'trainAttribute.txt')      
     CITYSCAPES_eval_list = os.path.join(CITYSCAPES_DATA_DIR, 'valAttribute.txt')

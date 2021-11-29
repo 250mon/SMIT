@@ -4,15 +4,17 @@ import PIL.Image as Image
 import coco_annotation as coanno
 
 from pycocotools.coco import COCO
+from read_config import read_config
 
-#dataDir='C:/Project/CloudStation/deeplearning/data/COCO'
-dataDir='.'
-dataType='train2017'
-annFile='{}\\annotations2017\\instances_{}.json'.format(dataDir,dataType)
+# dataDir='.'
+# dataType='train2017'
+# annFile='{}\\annotations2017\\instances_{}.json'.format(dataDir,dataType)
+paths = read_config('wk09_config')
+dataDir = paths['dataDir']
+annFile = paths['annFile']
+imgDir = paths['imgDir']
 
 coco=COCO(annFile)
-#annFile = '{}/annotations/person_keypoints_{}.json'.format(dataDir,dataType)
-#coco_kps=COCO(annFile)
 
 catIds = coco.getCatIds(catNms=['person'])
 imgIds = coco.getImgIds(catIds=catIds )
@@ -26,29 +28,25 @@ imgIds = coco.getImgIds(catIds=catIds )
 
 #cv2.namedWindow('mask_window', cv2.WINDOW_AUTOSIZE)
 print("Number of Images : ", len(imgIds))
-if not os.path.exists('.\\coco'):
-    os.makedirs('.\\coco')
-if not os.path.exists('.\\coco\\tall'):
-    os.makedirs('.\\coco\\tall')
-if not os.path.exists('.\\coco\\wide'):
-    os.makedirs('.\\coco\\wide')
-if not os.path.exists('.\\coco\\tall\\small'):
-    os.makedirs('.\\coco\\tall\\small')
-if not os.path.exists('.\\coco\\tall\\normal'):
-    os.makedirs('.\\coco\\tall\\normal')
-if not os.path.exists('.\\coco\\wide\\small'):
-    os.makedirs('.\\coco\\wide\\small')
-if not os.path.exists('.\\coco\\wide\\normal'):
-    os.makedirs('.\\coco\\wide\\normal')
+coco_dir = os.path.join(dataDir, 'coco')
+tall_dir = os.path.join(coco_dir, 'tall')
+wide_dir = os.path.join(coco_dir, 'wide')
+os.makedirs(coco_dir, exist_ok=True)
+os.makedirs(tall_dir, exist_ok=True)
+os.makedirs(wide_dir, exist_ok=True)
+os.makedirs(os.path.join(tall_dir, 'small'), exist_ok=True)
+os.makedirs(os.path.join(tall_dir, 'normal'), exist_ok=True)
+os.makedirs(os.path.join(wide_dir, 'small'), exist_ok=True)
+os.makedirs(os.path.join(wide_dir, 'normal'), exist_ok=True)
 
-dir1 = '.'
-dir2 = 'coco'
+# dir1 = '.'
+# dir2 = 'coco'
 
 for i in range(len(imgIds)): 
     img = coco.loadImgs(imgIds[i])[0]
-    
-    orig = Image.open('.\\train2017\\'+img['file_name'])
-    #orig = Image.open('.\\train2014\\'+img['file_name'])
+    img_file_name = os.path.join(imgDir, img['file_name'])
+    # orig = Image.open('.\\train2017\\'+img['file_name'])
+    orig = Image.open(img_file_name)
     if len(np.shape(orig)) is not 3:
         print("Not RGB, shape was -", np.shape(orig))
         orig = np.reshape(orig, np.shape(orig)+(1,))
@@ -120,7 +118,7 @@ for i in range(len(imgIds)):
     #s_image = Image.fromarray((mask*image).astype(np.uint8))
     s_image = np.concatenate((image, mask*255), axis=2)
     s_image = Image.fromarray(s_image.astype(np.uint8))
-    fileName = os.path.join(dir1, dir2, dir3, dir4, fileName)
+    fileName = os.path.join(coco_dir, dir3, dir4, fileName)
     s_image.save(fileName)
     print('step {:d}: Processed - {:s}'.format(i, fileName))
     

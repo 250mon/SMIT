@@ -9,13 +9,18 @@ import cv2, os
 import numpy as np
 from pycocotools.coco import COCO
 import coco_annotation as coano
+from read_config import read_config
 
 
 def main():
     
     #annFile = './annotations//person_keypoints_train2017.json'
-    annFile = './annotations//instances_train2017.json'
-    imgDir = './train2017'
+    # annFile = './annotations//instances_train2017.json'
+    # imgDir = './train2017'
+    paths = read_config('wk09_config')
+    annFile = paths['annFile']
+    imgDir= paths['imgDir']
+
     ann_color = np.array([[[128, 0, 0]]]) # mid blue
     img_type = True
     
