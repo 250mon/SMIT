@@ -8,7 +8,7 @@ from utils_pool import ImageReader, Config
 
 def main():
     start_time = time.time()
-    cfg = Config(pool_type=None, ipc_type='buffer')
+    cfg = Config(pool_type='mp_pool', ipc_type='queue')
     reader = ImageReader(cfg)
     loop = int(reader.img_list_size * 1)  # five epoch simulation
     # cv2.namedWindow('Images', cv2.WINDOW_AUTOSIZE)

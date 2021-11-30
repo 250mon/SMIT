@@ -25,7 +25,7 @@ class Config(object):
         self.DATA_DIR = self.config_param['data_dir']
         assert os.path.exists(self.DATA_DIR)
         self.BUFFER_SIZE = 128  # fix this value (don't change)
-        self.POOL_SIZE = 2  # number of Process(Thread) pool
+        self.POOL_SIZE = 8  # number of Process(Thread) pool
         self.BATCH_SIZE = 4
         self.READ_SIZE = [512, 512]
 
@@ -139,6 +139,28 @@ class ImageReader(object):
 
     def _get_next_from_queue(self):
         return self.ipc.get()
+
+    def _start_shm(self):
+
+    def _get_next_from_shm(self):
+        lock.acquire()
+        # immutable; copied
+        counter = self.shm.buf[0]
+        # mutable; referenced
+        sh_array = np.ndarray(mshape, dtype=mtype, buffer=shm.buf, offset=1)
+        # copy contents from shared memory to local buffer
+        np.append(self.buffer, copy.copy(sh_array), axis=0)
+        self.shm.buf[0] = 0
+        lock.release()
+
+        # handling local variables
+        if counter != 0:
+            count += counter
+            for i in range(counter):
+                self.buffer += 1
+            print(f'count={count}')
+            waiting_count = 0
+        return buffer
 
     def close(self):
         if self.cfg.pool_type == 'mp_pool':
