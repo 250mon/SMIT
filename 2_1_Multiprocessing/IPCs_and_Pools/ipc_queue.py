@@ -6,7 +6,7 @@ class IpcQueue:
     def __init__(self, cfg):
         self.buffer_size = cfg.buffer_size
         if cfg.queue is None:
-            cfg.queue , cfg.lock = self._create_queue()
+            cfg.queue, cfg.lock = self._create_queue()
         self.queue = cfg.queue
         self.lock = cfg.lock
         self.reader = batch_reader.BatchReader(cfg)

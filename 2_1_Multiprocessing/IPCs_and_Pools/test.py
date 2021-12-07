@@ -9,7 +9,7 @@ def main(pool_type, pool_size, ipc_type):
     start_time = time.time()
     cfg = Config(pool_type=pool_type, pool_size=pool_size, ipc_type=ipc_type)
     reader = ImageReader(cfg)
-    loop = int(cfg.img_list_size * 1)  # five epoch simulation
+    loop = int(cfg.img_list_size * 5)  # five epoch simulation
     cv2.namedWindow('Images', cv2.WINDOW_AUTOSIZE)
     reader.start_reader()
 

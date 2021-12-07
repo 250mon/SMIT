@@ -36,8 +36,8 @@ class IpcShm:
 
         while True:
             batch = self.reader.get_batch()
-            # self.lock.acquire()
             attached_array[attached_counter[0]] = batch
+            # self.lock.acquire()
             attached_counter[0] += 1
             # self.lock.release()
             # print(f'produced array! counter{attached_counter[0]} {attached_array[0][0][0][0]}')
@@ -70,8 +70,6 @@ class IpcShm:
             time.sleep(0)
         # print("\t\tconsuming...")
         return batch
-        # finally before shm.unlike() to free and release shared memory block
-        # self.shm.close()
 
     def close(self):
         self.shm.close()
