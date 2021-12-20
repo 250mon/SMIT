@@ -60,7 +60,8 @@ class NetModel():
         lowbr = nbr.LowBranch(self.ic_net)
         midbr = nbr.MidBranch(self.ic_net)
         highbr_pre = nbr.HighBranchPre(self.ic_net)
-        highbr_post = nbr.HighBranchPost(self.ic_net)
+        # highbr_post = nbr.HighBranchPost(self.ic_net)
+        highbr_post = nbr.HighBranchPost2(self.ic_net)
         cff1 = nbr.CFFModule(self.ic_net, term_name='cff1')
         cff2 = nbr.CFFModule(self.ic_net, term_name='cff2')
 
@@ -76,7 +77,7 @@ class NetModel():
         t_midbr_pred, t_highbr_pre_out = cff2.build(t_midbr_out, t_highbr_conv_out)
         midbr_loss = self._loss(t_midbr_pred, self.t_level_labs['midbr'])
 
-        # t_highbr_pred is a classified output (1/4 size, 19 channels)
+        # t_highbr_pred is a segmented output (1/4 size, 19 channels)
         # t_outputs is a final output (1 size, 19 channels)
         t_highbr_pred, t_outputs = highbr_post.build(t_highbr_pre_out)
         highbr_loss = self._loss(t_highbr_pred, self.t_level_labs['highbr'])

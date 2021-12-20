@@ -5,30 +5,36 @@ from __future__ import print_function
 import os, sys, cv2, glob, time, random
 import numpy as np
 from multiprocessing import Process, Manager, Lock
+from operator import methodcaller
 
 
 class CityscapesReader(object):
     def __init__(self, settings):
-        self.label_color = [[128, 64, 128], [244, 35, 232], [70, 70, 70]
-                       # 0 = road, 1 = sidewalk, 2 = building
-            , [102, 102, 156], [190, 153, 153], [153, 153, 153]
-                       # 3 = wall, 4 = fence, 5 = pole
-            , [250, 170, 30], [220, 220, 0], [107, 142, 35]
-                       # 6 = traffic light, 7 = traffic sign, 8 = vegetation
-            , [152, 251, 152], [70, 130, 180], [220, 20, 60]
-                       # 9 = terrain, 10 = sky, 11 = person
-            , [255, 0, 0], [0, 0, 142], [0, 0, 70]
-                       # 12 = rider, 13 = car, 14 = truck
-            , [0, 60, 100], [0, 80, 100], [0, 0, 230]
-                       # 15 = bus, 16 = train, 17 = motocycle
-            , [119, 10, 32]]
-        # 18 = bicycle
+        self.config_params = self._read_config()
+        self.label_color = [
+            # 0 = road, 1 = sidewalk, 2 = building
+            [128, 64, 128], [244, 35, 232], [70, 70, 70],
+            # 3 = wall, 4 = fence, 5 = pole
+            [102, 102, 156], [190, 153, 153], [153, 153, 153],
+            # 6 = traffic light, 7 = traffic sign, 8 = vegetation
+            [250, 170, 30], [220, 220, 0], [107, 142, 35],
+            # 9 = terrain, 10 = sky, 11 = person
+            [152, 251, 152], [70, 130, 180], [220, 20, 60],
+            # 12 = rider, 13 = car, 14 = truck
+            [255, 0, 0], [0, 0, 142], [0, 0, 70],
+            # 15 = bus, 16 = train, 17 = motocycle
+            [0, 60, 100], [0, 80, 100], [0, 0, 230],
+            # 18 = bicycle
+            [119, 10, 32]
+        ]
 
         # self.dataset_root = '/mnt/e/Datasets'
-        self.dataset_root = 'D:\\sjy\\Datasets'
+        # self.dataset_root = 'D:\\sjy\\Datasets'
         # self.dataset_root = '/home/ynjn/sdb/Datasets'
-        self.dataset_dir = 'cityscape-dist'
+        self.dataset_root = self.config_params['dataset_root']
+        # self.dataset_dir = 'cityscape-dist'
         # self.dataset_dir = 'cityscape_subset'
+        self.dataset_dir = self.config_params['dataset_dir']
         self.cityscape_data = {
             'train_img_path': os.path.join(self.dataset_root, self.dataset_dir, 'leftImg8bit', 'train'),
             'train_label_path': os.path.join(self.dataset_root, self.dataset_dir, 'gtFine', 'train'),
@@ -65,8 +71,15 @@ class CityscapesReader(object):
         self.p.daemon=True
         self.p.start()
         time.sleep(0.5)
-    
-    
+
+    def _read_config(self, config_file='config'):
+        with open(config_file, 'r') as fd:
+            lines = fd.readlines()
+        lines = map(methodcaller('strip'), lines)
+        lines = list(map(methodcaller('split', ";"), lines))
+        res_dict = {lines[i][0]: lines[i][1] for i in range(len(lines))}
+        return res_dict
+
     def _get_list(self, type):
         image_cities = glob.glob(os.path.join(self.cityscape_data[type + '_img_path'], '*'))
         label_cities = glob.glob(os.path.join(self.cityscape_data[type + '_label_path'], '*'))

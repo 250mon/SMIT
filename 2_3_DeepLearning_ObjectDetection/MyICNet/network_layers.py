@@ -304,6 +304,7 @@ class PyramidPoolLayer(Layer):
             # [[h, w], [h/2, w/2], ...] using outer product
             pool_hw_sizes = tf.cast(tf.tensordot(pooled_out_size, tf.cast(tensor_size, tf.float32), axes=0), tf.int32)
 
+            # to collect the pyramid pooled tensors
             ltensors = []
             for lpool_size in pool_hw_sizes:
                 # avg pooling; AvgPoolLayer is implemented for ipool_size, not for lpool_size
@@ -314,12 +315,12 @@ class PyramidPoolLayer(Layer):
                 # upsampling back to the original hxw
                 tpooled_out = self.addon_layer.resize_images(tsize=tensor_size, sname=sname+'_resize')
                 ltensors.append(tpooled_out)
-
+            # concatenate the collected pyramid pooled tensors
             tpooled_concat = tf.concat(ltensors, axis=3)
+            # add the pyramid pooled concat tensors with the input tensors
             x = tf.math.add(tinputs, tpooled_concat)
             self.push_to_terminal(x)
             return x
-
 
 # If HxW size is not the multiples of 6, PyramidPoolLayer does not work properly
 # because the division of the image into 6 segments results in a avg pooling of unbalanced segments
@@ -369,7 +370,9 @@ class PyramidPoolLayer2(Layer):
                 ltensors.append(tpooled_out)
                 # for repeated avg_pooling, tinputs are fed as the input
                 self.push_to_terminal(tinputs)
+            # concatenate the collected pyramid pooled tensors
             tpooled_concat = tf.concat(ltensors, axis=3)
+            # add the pyramid pooled concat tensors with the input tensors
             x = tf.math.add(tinputs, tpooled_concat)
             self.push_to_terminal(x)
             return x
