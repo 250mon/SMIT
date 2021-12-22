@@ -22,7 +22,7 @@ class NetModel(keras.Model):
         # for tensorboard summary creation of loss and accuracy
         self.ph_summary = tf.placeholder(dtype=tf.float32, name='summary')
         # constants
-        self.i_num_classes = tf.constant(self.net_params.class_num, dtype=tf.int32)
+        self.i_num_classes = tf.constant(self.net_params.class_num, dtype=tf.uint8)
         self.f_num_classes = tf.constant(self.net_params.class_num, dtype=tf.float32)
 
         ########################################################

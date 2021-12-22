@@ -6,7 +6,7 @@ import numpy as np
 from settings import Settings
 from network_params import NetParams
 import utils
-import network_model
+import network_model_keras
 from util_ckpt import CheckPtHandler
 from util_log import Loggers
 
@@ -37,7 +37,7 @@ class ICNet:
 
     def _build_graph(self):
         # creating network
-        self.network = network_model.NetModel(self)
+        self.network = network_model_keras.NetModel(self)
         # ckpt handler
         self.ckpt_handler = CheckPtHandler(self)
 

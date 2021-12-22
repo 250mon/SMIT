@@ -47,7 +47,7 @@ for i in range(len(imgIds)):
     img_file_name = os.path.join(imgDir, img['file_name'])
     # orig = Image.open('.\\train2017\\'+img['file_name'])
     orig = Image.open(img_file_name)
-    if len(np.shape(orig)) is not 3:
+    if len(np.shape(orig)) != 3:
         print("Not RGB, shape was -", np.shape(orig))
         orig = np.reshape(orig, np.shape(orig)+(1,))
         orig = np.concatenate((orig, orig, orig), axis=2)
