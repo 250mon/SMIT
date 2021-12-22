@@ -133,16 +133,23 @@ class NetModel(keras.Model):
         t_pred_gathered = tf.gather(tf.reshape(t_pred, (-1, self.i_num_classes)), indices)
 
         # compute class weights
+        # t_class_weights = self._compute_class_weights(t_gt_gathered)
+        # weighted_entropy = tf.multiply(
+        #     tf.nn.sparse_softmax_cross_entropy_with_logits(logits=t_pred_gathered, labels=t_gt_gathered),
+        #     t_class_weights)
+        # return tf.reduce_mean(weighted_entropy)
+
+        t_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=t_pred_gathered, labels=t_gt_gathered)
+        return tf.reduce_mean(t_entropy)
+
+    def _compute_class_weights(self, t_gt_gathered):
         n_samples = tf.constant(t_gt_gathered.shape[0], dtype=tf.float32)
         # class_weights = n_samples / (n_classes * bincount(y))
         class_weights = tf.divide_no_nan(n_samples,
                                          tf.multiply(self.f_num_classes,
                                                      tf.cast(tf.bincount(t_gt_gathered), tf.float32)))
         t_class_weights = tf.gather(class_weights, t_gt_gathered)
-        weighted_entropy = tf.multiply(
-            tf.nn.sparse_softmax_cross_entropy_with_logits(logits=t_pred_gathered, labels=t_gt_gathered),
-            t_class_weights)
-        return tf.reduce_mean(weighted_entropy)
+        return t_class_weights
 
     # weight decay applied to Batch Norm Params and 1x1 conv Params
     def _apply_weight_decay(self, loss):
