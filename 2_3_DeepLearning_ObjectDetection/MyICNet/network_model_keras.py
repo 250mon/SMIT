@@ -120,6 +120,7 @@ class NetModel(keras.Model):
 
     # t_gt: ground truth (N, H, W, 1)
     # t_pred: prediction (N, H, W, C)
+    # @tf.function
     def _loss(self, t_pred, t_gt):
         # t_gt_serial (NxHxW, 1): [3, 5, 2, 255, 13, ... ]
         t_gt_serial = tf.reshape(t_gt, (-1,))
@@ -136,6 +137,9 @@ class NetModel(keras.Model):
 
         # compute class weights
         t_class_weights = self._compute_class_weights(t_gt_gathered)
+        # tf.print(tf.reduce_sum(t_class_weights))
+        # tf.print(t_class_weights, summarize=-1)
+        # tf.print(t_class_weights, output_stream="file://D:\\sjy\\class_wgt.out")
         weighted_entropy = tf.multiply(
             tf.nn.sparse_softmax_cross_entropy_with_logits(logits=t_pred_gathered, labels=t_gt_gathered),
             t_class_weights)
@@ -145,9 +149,10 @@ class NetModel(keras.Model):
         # t_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=t_pred_gathered, labels=t_gt_gathered)
         # return tf.reduce_mean(t_entropy)
 
+    # @tf.function
     def _compute_class_weights(self, t_gt_gathered):
-        n_samples = tf.constant(self.settings.batch_size, dtype=tf.float32)
-        # class_weights = n_samples / (n_classes * bincount(y))
+        n_samples = tf.cast(tf.shape(t_gt_gathered)[0], dtype=tf.float32)
+        # tf.print(n_samples)
         class_weights = tf.math.divide_no_nan(n_samples,
                                          tf.multiply(self.f_num_classes,
                                                      tf.cast(tf.bincount(t_gt_gathered), tf.float32)))

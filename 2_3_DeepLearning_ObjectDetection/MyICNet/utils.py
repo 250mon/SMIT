@@ -10,7 +10,7 @@ from operator import methodcaller
 
 class CityscapesReader(object):
     def __init__(self, settings):
-        self.config_params = self._read_config()
+        self.config_options = self._read_config()
         self.label_color = [
             # 0 = road, 1 = sidewalk, 2 = building
             [128, 64, 128], [244, 35, 232], [70, 70, 70],
@@ -31,10 +31,10 @@ class CityscapesReader(object):
         # self.dataset_root = '/mnt/e/Datasets'
         # self.dataset_root = 'D:\\sjy\\Datasets'
         # self.dataset_root = '/home/ynjn/sdb/Datasets'
-        self.dataset_root = self.config_params['dataset_root']
+        self.dataset_root = self.config_options['dataset_root']
         # self.dataset_dir = 'cityscape-dist'
         # self.dataset_dir = 'cityscape_subset'
-        self.dataset_dir = self.config_params['dataset_dir']
+        self.dataset_dir = self.config_options['dataset_dir']
         self.cityscape_data = {
             'train_img_path': os.path.join(self.dataset_root, self.dataset_dir, 'leftImg8bit', 'train'),
             'train_label_path': os.path.join(self.dataset_root, self.dataset_dir, 'gtFine', 'train'),
@@ -76,9 +76,9 @@ class CityscapesReader(object):
         with open(config_file, 'r') as fd:
             lines = fd.readlines()
         lines = map(methodcaller('strip'), lines)
-        lines = list(map(methodcaller('split', ";"), lines))
-        res_dict = {lines[i][0]: lines[i][1] for i in range(len(lines))}
-        return res_dict
+        lines = list(map(methodcaller('split', ";"), filter(lambda l: not l.startswith("#"), lines)))
+        options = {l[0]: l[1] for l in lines}
+        return options
 
     def _get_list(self, type):
         image_cities = glob.glob(os.path.join(self.cityscape_data[type + '_img_path'], '*'))
