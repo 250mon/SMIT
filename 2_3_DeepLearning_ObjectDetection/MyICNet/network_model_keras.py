@@ -1,8 +1,6 @@
 import tensorflow.compat.v1 as tf
 import tensorflow.bitwise as tw
 from tensorflow import keras
-
-import ic_net
 import network_branches as nbr
 
 
