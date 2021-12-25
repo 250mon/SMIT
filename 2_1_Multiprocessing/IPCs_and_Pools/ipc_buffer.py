@@ -11,6 +11,8 @@ class IpcBuffer:
         self.buffer = cfg.buffer
         self.lock = cfg.lock
         self.reader = batch_reader.BatchReader(cfg)
+        self.counter = 0
+        self.rd_pos = 0
 
     def _create_buffer(self):
         return Manager().list([]), Manager().Lock()
@@ -21,6 +23,7 @@ class IpcBuffer:
 
     # producer
     def start_ipc(self):
+        wt_pos = 0
         while True:
             batch = self.reader.get_batch()
             while True:
@@ -28,16 +31,38 @@ class IpcBuffer:
                     break
                 else:
                     time.sleep(0)
-            self.lock.acquire()
-            self.buffer.append(batch)
-            self.lock.release()
+
+            # # wrong; don't lock append, but counter
+            # self.lock.acquire()
+            # self.buffer.append(batch)
+            # self.lock.release()
+
+            for idx in range(len(batch)):
+                self.buffer[wt_pos] = batch[idx]
+                wt_pos = (wt_pos + 1) % self.buffer_size
+                self.lock.acqure()
+                self.counter += 1
+                self.lock.release()
+                while True:
+                    if self.counter < self.buffer_size:
+                        break
+                    else:
+                        time.sleep(0)
 
     # consumer
     def get_next(self):
         while True:
             if len(self.buffer):
+                # # don't lock pop but counter
+                # # pop(0) is time consuming job
+                # self.lock.acquire()
+                # item = self.buffer.pop(0)
+                # self.lock.release()
+
+                item = self.buffer[self.rd_pos]
+                self.rd_pos = (self.rd_pos + 1) % self.buffer_size
                 self.lock.acquire()
-                item = self.buffer.pop(0)
+                self.counter -= 1
                 self.lock.release()
                 break
             else:

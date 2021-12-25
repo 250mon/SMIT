@@ -10,6 +10,15 @@ import os, glob, random, time, cv2
 import PIL.Image as Image
 import multiprocessing as mp
 from multiprocessing import Process, Manager, Lock
+from read_config import read_config
+
+class Config(object):
+    # Setting dataset directory
+    # CITYSCAPES_DATA_DIR = '/home/ygkim/hdtNET/cityscapes'
+    # COCO_DATA_DIR = '../Dataset/Train'
+    dirs = read_config('wk10_config')
+    CITYSCAPES_DATA_DIR = dirs['CITYSCAPES_DATA_DIR']
+    COCO_DATA_DIR = dirs['COCO_DATA_DIR']
 
 class Config(object):
     # Setting dataset directory
