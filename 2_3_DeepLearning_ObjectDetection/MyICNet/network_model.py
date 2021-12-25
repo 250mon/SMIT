@@ -61,7 +61,6 @@ class NetModel():
         midbr = nbr.MidBranch(self.ic_net)
         highbr_pre = nbr.HighBranchPre(self.ic_net)
         highbr_post = nbr.HighBranchPost(self.ic_net)
-        # highbr_post = nbr.HighBranchPost2(self.ic_net)
         cff1 = nbr.CFFModule(self.ic_net, term_name='cff1')
         cff2 = nbr.CFFModule(self.ic_net, term_name='cff2')
 
