@@ -8,9 +8,14 @@ import logging
 def main(pool_type, pool_size, ipc_type):
     start_time = time.time()
     cfg = Config(pool_type=pool_type, pool_size=pool_size, ipc_type=ipc_type)
-    reader = ImageReader(cfg)
     loop = int(cfg.img_list_size * 5)  # five epoch simulation
     cv2.namedWindow('Images', cv2.WINDOW_AUTOSIZE)
+
+    # ImageReader is an object which has functionality of
+    # creating child processes/threads and
+    # handling IPC channels
+    reader = ImageReader(cfg)
+    # start child processes or threads
     reader.start_reader()
 
     ipc_occupied = 0

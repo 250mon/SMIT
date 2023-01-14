@@ -40,7 +40,7 @@ class IpcBuffer:
             for idx in range(len(batch)):
                 self.buffer[wt_pos] = batch[idx]
                 wt_pos = (wt_pos + 1) % self.buffer_size
-                self.lock.acqure()
+                self.lock.acquire()
                 self.counter += 1
                 self.lock.release()
                 while True:

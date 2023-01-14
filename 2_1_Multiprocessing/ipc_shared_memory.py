@@ -23,8 +23,12 @@ def pd_routine(mname, mshape, mtype, lock):
         lock.acquire()
         attached_array[attached_counter[0]] = np.ones((H,), dtype=np.int32) * i
         attached_counter[0] += 1
-        lock.release()
+        # the producer placing 'print' statement after lock is released could make
+        # confusion about the order of producing and consuming by allowing
+        # the consumer's 'print' run before the producer's
         print(f'produced {i}th array! {attached_array[0]}')
+        lock.release()
+        # print(f'produced {i}th array! {attached_array[0]}')
         time.sleep(0.001)
     # finally before shm.unlike() to free and release shared memory block
     shm.close()

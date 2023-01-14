@@ -1,4 +1,3 @@
-import multiprocessing as mp
 from multiprocessing.pool import ThreadPool
 import os, time
 
@@ -7,7 +6,7 @@ def hello(x):
     print("inside hello()")
     print("Process id: ", os.getpid())
     # move to wait queue of OS for 3 seconds (timer event was set to invoke the process)
-    time.sleep(3)
+    time.sleep(1)
     return x * x
 
 

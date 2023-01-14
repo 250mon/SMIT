@@ -6,7 +6,6 @@ import time
 num_writers = 10
 num_readers = 3
 
-
 def writer(i, q):
     # Imitate CPU-bound work happening in writer
     delay = random.randint(1, 10)
@@ -43,12 +42,14 @@ if __name__ == '__main__':
 
     # Create multiprocessing queue
     q = m.Queue()
+
     # Create a group of parallel writers and start them
     for i in range(num_writers):
         Process(target=writer, args=(i, q,)).start()
 
     # Create multiprocessing pool
     p = Pool(num_readers, init_worker)
+
     # Create a group of parallel readers and start them
     # Number of readers is matching the number of writers
     # However, the number of simultaneously running
